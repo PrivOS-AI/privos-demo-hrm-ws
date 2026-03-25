@@ -7,8 +7,10 @@ import 'dotenv/config';
 import express from 'express';
 import path from 'path';
 
-import { connectRelay } from './relay-client';
+import { connectRelay, pairWithPrivos } from './relay-client';
 import { handleMcpMessage } from './mcp-message-handlers';
+import _pkg from '../package.json';
+const pkg = _pkg as Record<string, any>;
 
 const PORT = process.env.PORT || 10002;
 const PUBLIC_URL = process.env.PUBLIC_URL || `http://localhost:${PORT}`;
@@ -46,14 +48,26 @@ async function start() {
 	});
 
 	// Connect to Privos via WebSocket relay
-	const privosUrl = process.env.PRIVOS_URL;
-	const clientId = process.env.CLIENT_ID;
-	const clientSecret = process.env.CLIENT_SECRET;
+	let privosUrl = process.env.PRIVOS_URL;
+	let clientId = process.env.CLIENT_ID;
+	let clientSecret = process.env.CLIENT_SECRET;
 
+	// First run: no credentials yet — start pairing flow
 	if (!privosUrl || !clientId || !clientSecret) {
-		console.error('Missing required env vars: PRIVOS_URL, CLIENT_ID, CLIENT_SECRET');
-		console.error('Register this app in Privos Admin → Apps → Register Relay App');
-		process.exit(1);
+		console.log('\nNo Privos credentials found. Starting pairing flow...');
+		console.log('Get a pairing URL from: Privos Admin → Apps → Register Relay App\n');
+
+		const creds = await pairWithPrivos({
+			name: pkg.title || pkg.name,
+			description: pkg.description,
+			version: pkg.version,
+		});
+
+		privosUrl = creds.privosUrl;
+		clientId = creds.clientId;
+		clientSecret = creds.clientSecret;
+
+		console.log('\nRestarting with saved credentials...\n');
 	}
 
 	await connectRelay({
@@ -62,8 +76,6 @@ async function start() {
 		clientSecret,
 		onMessage: handleMcpMessage,
 	});
-
-	console.log('Relay app started — connecting to Privos...');
 }
 
 start().catch((err) => {
