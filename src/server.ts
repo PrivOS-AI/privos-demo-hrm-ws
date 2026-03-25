@@ -4,11 +4,23 @@
  * On first run (no credentials), starts the pairing flow.
  */
 import 'dotenv/config';
+import fs from 'fs';
+import path from 'path';
 
 import { connectRelay, pairWithPrivos } from './relay-client';
 import { handleMcpMessage } from './mcp-message-handlers';
 import _pkg from '../package.json';
 const pkg = _pkg as Record<string, any>;
+
+/** Read icon file as data URI for pairing metadata */
+function getIconDataUri(): string | undefined {
+	const iconPath = pkg.icon?.startsWith('/') ? path.join(__dirname, '..', pkg.icon) : undefined;
+	if (!iconPath || !fs.existsSync(iconPath)) return undefined;
+	const ext = path.extname(iconPath).slice(1);
+	const mime = ext === 'svg' ? 'image/svg+xml' : `image/${ext}`;
+	const data = fs.readFileSync(iconPath).toString('base64');
+	return `data:${mime};base64,${data}`;
+}
 
 async function start() {
 	let privosUrl = process.env.PRIVOS_URL;
@@ -24,6 +36,7 @@ async function start() {
 			name: pkg.title || pkg.name,
 			description: pkg.description,
 			version: pkg.version,
+			icon: getIconDataUri(),
 		});
 
 		privosUrl = creds.privosUrl;
