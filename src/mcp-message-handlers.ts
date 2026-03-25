@@ -10,6 +10,17 @@ import path from 'path';
 import _pkg from '../package.json';
 const pkg = _pkg as Record<string, any>;
 
+/** Read icon as data URI from package.json icon path */
+function getIconDataUri(): string | undefined {
+	const iconPath = pkg.icon?.startsWith('/') ? path.join(__dirname, '..', pkg.icon) : undefined;
+	if (!iconPath || !fs.existsSync(iconPath)) return undefined;
+	const ext = path.extname(iconPath).slice(1);
+	const mime = ext === 'svg' ? 'image/svg+xml' : `image/${ext}`;
+	const data = fs.readFileSync(iconPath).toString('base64');
+	return `data:${mime};base64,${data}`;
+}
+const appIcon = getIconDataUri();
+
 /** Cache the built UI HTML — invalidated when dist changes (dev watch mode) */
 let cachedUiHtml: string | null = null;
 let lastBuildMtime = 0;
@@ -33,7 +44,7 @@ export function handleMcpMessage(method: string, _id: number, params: any): any 
 						},
 					},
 				},
-				serverInfo: { name: pkg.title || pkg.name, version: pkg.version },
+				serverInfo: { name: pkg.title || pkg.name, version: pkg.version, ...(appIcon && { icon: appIcon }) },
 			};
 
 		case 'notifications/initialized':
