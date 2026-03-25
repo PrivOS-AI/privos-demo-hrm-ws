@@ -2,7 +2,7 @@
 
 HR management demo app for Privos Chat — **relay WebSocket** version.
 
-Unlike the [direct version](https://github.com/PrivOS-AI/privos-demo-hrm) which requires a public URL, this app connects **outbound** to Privos via WebSocket. No public URL or port forwarding needed.
+Unlike the [direct version](https://github.com/PrivOS-AI/privos-demo-hrm) which requires a public URL, this app connects **outbound** to Privos via WebSocket. No HTTP server, no public URL, no port forwarding.
 
 ## How it works
 
@@ -11,58 +11,53 @@ This app (behind NAT)  --WSS-->  Privos Server
                                     |
                        MCP JSON-RPC over WebSocket
                        (initialize, tools/list, tools/call, resources/read)
+                                    |
+                       UI HTML delivered inline (fully self-contained)
 ```
 
-1. App obtains OAuth access token via `client_credentials` grant
-2. App connects to `wss://privos/api/v1/mcp-apps.relay` with bearer token
-3. Privos discovers tools over the WS, app goes "online"
-4. Users install the app in rooms — UI and tool calls route through the WS
+1. On first run, app pairs with Privos via a one-time URL (credentials saved to `.env`)
+2. On subsequent runs, app authenticates via OAuth and connects WS
+3. Privos discovers tools, app goes "online"
+4. UI is built by Vite, inlined in `resources/read` — no external URL references
 
 ## Setup
 
-### 1. Register in Privos
-
-Admin Panel → Apps → **Register Relay App** → enter "Demo HR Management" → copy credentials.
-
-### 2. Configure
-
-```bash
-cp .env.example .env
-# Edit .env with your PRIVOS_URL, CLIENT_ID, CLIENT_SECRET
-```
-
-### 3. Run
-
 ```bash
 npm install
-npm run dev
+npm start
 ```
 
-The app connects to Privos automatically. Check the admin panel — you should see a green dot next to the app.
+On first run (no `.env` credentials):
+```
+No Privos credentials found. Starting pairing flow...
+Get a pairing URL from: Privos Admin → Apps → Register Relay App
 
-### 4. Use
+Enter the Privos relay pairing URL: wss://privos.example.com/api/v1/mcp-apps.relay?pair=abc...
 
-Go to any room → install the app → open the app tab. Same UX as the direct version.
+[Relay] Paired! Credentials saved to .env
+[Relay] Connected to Privos
+```
+
+That's it. Next `npm start` just connects — no prompts.
 
 ## Differences from direct version
 
 | Aspect | Direct (privos-demo-hrm) | Relay (this repo) |
 |--------|-------------------------|-------------------|
-| Connection | Privos calls app via HTTP | App calls Privos via WS |
+| Connection | Privos → App via HTTP | App → Privos via WS |
 | Public URL | Required | Not needed |
-| MCP transport | Express `/mcp` route | WebSocket message handlers |
-| Auth | Privos authenticates to app | App authenticates to Privos (OAuth) |
+| HTTP server | Express (manifest, /mcp, static) | None |
+| UI delivery | Browser loads from app URL | Inlined in resources/read |
+| Setup | Manual credential copy | One-time pairing URL |
 | UI code | Identical | Identical |
-
-The `src/ui/` directory is unchanged — relay vs direct is purely server-side transport.
 
 ## Project structure
 
 ```
 src/
-├── server.ts                # Entry: starts relay client + Vite UI server
-├── relay-client.ts          # WS client: OAuth auth, connect, auto-reconnect
-├── mcp-message-handlers.ts  # MCP method handlers (shared logic)
+├── server.ts                # Entry: pairing flow + relay connect
+├── relay-client.ts          # WS client: pairing, OAuth, auto-reconnect
+├── mcp-message-handlers.ts  # MCP handlers, inline UI from Vite build
 └── ui/                      # React UI (identical to direct version)
     ├── App.tsx
     ├── main.tsx
