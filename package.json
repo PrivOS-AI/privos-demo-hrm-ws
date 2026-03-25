@@ -30,7 +30,7 @@
     "ws": "^8.0.0"
   },
   "devDependencies": {
-    "@privos/app-react": "file:../privos-chat/packages/app-react",
+    "@privos/app-react": "file:../privos-app-packages/app-react",
     "concurrently": "^8.0.0",
     "@types/react": "^18.0.0",
     "@types/react-dom": "^18.0.0",

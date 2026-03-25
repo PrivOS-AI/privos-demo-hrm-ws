@@ -23,6 +23,9 @@ This app (behind NAT)  --WSS-->  Privos Server
 ## Setup
 
 ```bash
+# Clone the SDK (needed for @privos/app-react)
+git clone https://github.com/PrivOS-AI/privos-app-packages ../privos-app-packages
+
 npm install
 npm start
 ```
