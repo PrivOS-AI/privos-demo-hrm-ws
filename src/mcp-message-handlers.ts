@@ -10,8 +10,14 @@ import path from 'path';
 import _pkg from '../package.json';
 const pkg = _pkg as Record<string, any>;
 
-/** Cache the built UI HTML so we only read disk once */
+/** Cache the built UI HTML — invalidated when dist changes (dev watch mode) */
 let cachedUiHtml: string | null = null;
+let lastBuildMtime = 0;
+
+/** Clear cache so next resources/read picks up rebuilt UI */
+export function invalidateUiCache(): void {
+	cachedUiHtml = null;
+}
 
 /** Handle an incoming MCP JSON-RPC request and return the result */
 export function handleMcpMessage(method: string, _id: number, params: any): any {
@@ -72,9 +78,19 @@ export function handleMcpMessage(method: string, _id: number, params: any): any 
  * Reads from dist/ui/ (Vite build output). Run `npm run build` first.
  */
 function getInlineUiHtml(): string {
-	if (cachedUiHtml) return cachedUiHtml;
-
 	const distDir = path.join(__dirname, '../dist/ui');
+
+	// In dev watch mode, check if build output changed since last cache
+	const assetsPath = path.join(distDir, 'assets');
+	if (fs.existsSync(assetsPath)) {
+		const stat = fs.statSync(assetsPath);
+		if (stat.mtimeMs !== lastBuildMtime) {
+			cachedUiHtml = null;
+			lastBuildMtime = stat.mtimeMs;
+		}
+	}
+
+	if (cachedUiHtml) return cachedUiHtml;
 
 	// Find built JS and CSS files in dist/ui/assets/
 	const assetsDir = path.join(distDir, 'assets');

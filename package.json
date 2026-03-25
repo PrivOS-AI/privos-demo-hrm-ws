@@ -22,8 +22,8 @@
   },
   "scripts": {
     "build": "vite build",
-    "dev": "npm run build && tsx watch src/server.ts",
-    "start": "npm run build && tsx src/server.ts"
+    "dev": "concurrently \"vite build --watch\" \"tsx watch src/server.ts\"",
+    "start": "vite build && tsx src/server.ts"
   },
   "dependencies": {
     "dotenv": "^17.3.1",
@@ -31,6 +31,7 @@
   },
   "devDependencies": {
     "@privos/app-react": "file:../privos-chat/packages/app-react",
+    "concurrently": "^8.0.0",
     "@types/react": "^18.0.0",
     "@types/react-dom": "^18.0.0",
     "@types/ws": "^8.0.0",
