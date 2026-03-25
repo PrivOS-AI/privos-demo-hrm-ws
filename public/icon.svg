@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" fill="none">
+  <!-- Background rounded square -->
+  <rect width="128" height="128" rx="28" fill="#4361ee"/>
+  <!-- Person head -->
+  <circle cx="64" cy="42" r="16" fill="white"/>
+  <!-- Person body -->
+  <path d="M40 82c0-13.255 10.745-24 24-24s24 10.745 24 24v4H40v-4z" fill="white"/>
+  <!-- Plus badge -->
+  <circle cx="98" cy="98" r="18" fill="#22c55e" stroke="#4361ee" stroke-width="3"/>
+  <path d="M98 89v18M89 98h18" stroke="white" stroke-width="3.5" stroke-linecap="round"/>
+</svg>
