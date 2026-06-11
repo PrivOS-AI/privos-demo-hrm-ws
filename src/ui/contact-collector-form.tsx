@@ -3,8 +3,9 @@
  * Dynamically renders fields based on the selected list's fieldDefinitions.
  */
 import { useState, useEffect, useCallback } from 'react';
-import { usePrivosApp, usePrivosContext, useLists } from '@privos/app-react';
+import { usePrivosApp, usePrivosContext } from '@privos/app-react';
 import ListItemsTable from './list-items-table';
+import { restCall } from './privos-rest';
 
 interface FieldDefinition {
   _id: string;
@@ -17,6 +18,11 @@ interface ListData {
   _id: string;
   name: string;
   fieldDefinitions?: FieldDefinition[];
+}
+
+interface StageData {
+  _id: string;
+  name?: string;
 }
 
 const FIELD_TYPES = [
@@ -32,10 +38,16 @@ const FIELD_TYPES = [
 export default function HRManagementDashboard() {
   const app = usePrivosApp();
   const { roomId } = usePrivosContext();
-  const { data: lists, loading: listsLoading, error: listsError } = useLists(roomId);
+
+  // Lists in the room — fetched via the hub REST API (GET lists.listByRoomId),
+  // gated by the app's `lists:read` scope. Runs as the current user.
+  const [lists, setLists] = useState<ListData[]>([]);
+  const [listsLoading, setListsLoading] = useState(true);
+  const [listsError, setListsError] = useState<Error | null>(null);
 
   const [selectedListId, setSelectedListId] = useState('');
   const [selectedList, setSelectedList] = useState<ListData | null>(null);
+  const [stages, setStages] = useState<StageData[]>([]);
   const [loadingList, setLoadingList] = useState(false);
   const [itemName, setItemName] = useState('');
   const [fieldValues, setFieldValues] = useState<Record<string, any>>({});
@@ -53,25 +65,39 @@ export default function HRManagementDashboard() {
   // Show/hide the add form
   const [showForm, setShowForm] = useState(false);
 
+  // Load lists for the room once we know the roomId.
+  useEffect(() => {
+    if (!roomId) return;
+    let cancelled = false;
+    setListsLoading(true);
+    setListsError(null);
+    restCall<{ lists: ListData[] }>(app, 'GET', 'lists.listByRoomId', { query: { roomId } })
+      .then((body) => { if (!cancelled) setLists(Array.isArray(body.lists) ? body.lists : []); })
+      .catch((err) => { if (!cancelled) setListsError(err instanceof Error ? err : new Error(String(err))); })
+      .finally(() => { if (!cancelled) setListsLoading(false); });
+    return () => { cancelled = true; };
+  }, [app, roomId]);
+
   const fetchListDetails = useCallback(async (listId: string) => {
     if (!listId) {
       setSelectedList(null);
+      setStages([]);
       setFieldValues({});
       return;
     }
     setLoadingList(true);
     try {
-      const result = await app.callServerTool({
-        name: 'privos.lists.get',
-        arguments: { listId },
-      });
-      const parsed = typeof result?.content?.[0]?.text === 'string'
-        ? JSON.parse(result.content[0].text)
-        : result;
-      setSelectedList(parsed);
+      // GET lists.info returns { list, stages, itemCount }. The list carries its
+      // fieldDefinitions; stages are needed because items.create requires a stageId.
+      const body = await restCall<{ list: ListData; stages: StageData[] }>(
+        app, 'GET', 'lists.info', { query: { listId } },
+      );
+      setSelectedList(body.list);
+      setStages(Array.isArray(body.stages) ? body.stages : []);
       setFieldValues({});
     } catch {
       setSelectedList(null);
+      setStages([]);
     } finally {
       setLoadingList(false);
     }
@@ -92,12 +118,12 @@ export default function HRManagementDashboard() {
     setAddingField(true);
     setError(null);
     try {
-      const result = await app.callServerTool({
-        name: 'privos.lists.addField',
-        arguments: { listId: selectedListId, name: newFieldName.trim(), type: newFieldType },
-      });
-      const newField = typeof result?.content?.[0]?.text === 'string'
-        ? JSON.parse(result.content[0].text) : result;
+      // POST lists.fields.create returns { list, field }.
+      const body = await restCall<{ field: FieldDefinition }>(
+        app, 'POST', 'lists.fields.create',
+        { body: { listId: selectedListId, name: newFieldName.trim(), type: newFieldType } },
+      );
+      const newField = body.field;
       setSelectedList((prev) => prev ? {
         ...prev,
         fieldDefinitions: [...(prev.fieldDefinitions || []), newField],
@@ -118,15 +144,19 @@ export default function HRManagementDashboard() {
     if (!itemName.trim()) { setError('Name is required.'); return; }
     if (!selectedListId) { setError('Please select a list.'); return; }
 
+    // items.create requires a stageId — default to the list's first stage.
+    const stageId = stages[0]?._id;
+    if (!stageId) { setError('This list has no stages to add records to.'); return; }
+
     const customFields = Object.entries(fieldValues)
       .filter(([, v]) => v !== '' && v !== null && v !== undefined)
       .map(([fieldId, value]) => ({ fieldId, value }));
 
     setSubmitting(true);
     try {
-      await app.callServerTool({
-        name: 'privos.lists.createItem',
-        arguments: { listId: selectedListId, title: itemName, customFields },
+      // POST items.create — note the hub field is `name` (not `title`).
+      await restCall(app, 'POST', 'items.create', {
+        body: { listId: selectedListId, name: itemName, stageId, customFields },
       });
       setSuccess(true);
       setRefreshKey((k) => k + 1);

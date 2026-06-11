@@ -5,6 +5,7 @@
   "description": "HR management demo (relay WebSocket) -- connects to Privos via WS, no public URL needed",
   "title": "Demo HR Management (Relay)",
   "icon": "/public/icon.svg",
+  "scopes": ["lists:read", "lists:write"],
   "homepage": "https://privos.ai",
   "author": {
     "name": "PrivOS AI",

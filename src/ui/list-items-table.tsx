@@ -3,6 +3,7 @@
  */
 import { useState, useEffect, useCallback } from 'react';
 import type { McpApp } from '@privos/app-react';
+import { restCall } from './privos-rest';
 
 interface FieldDefinition {
   _id: string;
@@ -41,13 +42,11 @@ export default function ListItemsTable({ app, listId, fields, refreshKey }: List
     setLoading(true);
     setError(null);
     try {
-      const result = await app.callServerTool({
-        name: 'privos.lists.getItems',
-        arguments: { listId },
-      });
-      const parsed = typeof result?.content?.[0]?.text === 'string'
-        ? JSON.parse(result.content[0].text) : result;
-      setItems(Array.isArray(parsed) ? parsed : []);
+      // GET items.listByListId returns { items }.
+      const body = await restCall<{ items: ItemData[] }>(
+        app, 'GET', 'items.listByListId', { query: { listId } },
+      );
+      setItems(Array.isArray(body.items) ? body.items : []);
     } catch (err: any) {
       setError(err?.message || 'Failed to load items');
     } finally {
@@ -79,9 +78,9 @@ export default function ListItemsTable({ app, listId, fields, refreshKey }: List
     try {
       const customFields = Object.entries(editFields)
         .map(([fieldId, value]) => ({ fieldId, value }));
-      await app.callServerTool({
-        name: 'privos.lists.updateItem',
-        arguments: { itemId, title: editName, customFields },
+      // POST items.update — hub field is `name` (not `title`).
+      await restCall(app, 'POST', 'items.update', {
+        body: { itemId, name: editName, customFields },
       });
       // Update local state
       setItems((prev) => prev.map((item) => {
@@ -99,10 +98,7 @@ export default function ListItemsTable({ app, listId, fields, refreshKey }: List
   async function handleDelete(itemId: string) {
     setDeletingId(itemId);
     try {
-      await app.callServerTool({
-        name: 'privos.lists.deleteItem',
-        arguments: { itemId },
-      });
+      await restCall(app, 'POST', 'items.delete', { body: { itemId } });
       setItems((prev) => prev.filter((i) => i._id !== itemId));
       if (editingId === itemId) cancelEdit();
     } catch (err: any) {

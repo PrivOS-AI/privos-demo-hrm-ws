@@ -45,7 +45,7 @@ function saveToEnv(vars: Record<string, string>): void {
  * Pair with Privos using a one-time pairing URL.
  * Connects WS, sends app metadata, receives OAuth credentials, saves to .env.
  */
-export async function pairWithPrivos(appMeta: { name: string; description?: string; version?: string; icon?: string }): Promise<{
+export async function pairWithPrivos(appMeta: { name: string; description?: string; version?: string; icon?: string; scopes?: string[] }): Promise<{
 	privosUrl: string; clientId: string; clientSecret: string;
 }> {
 	const pairUrl = await prompt('\nEnter the Privos relay pairing URL: ');
@@ -62,6 +62,7 @@ export async function pairWithPrivos(appMeta: { name: string; description?: stri
 				description: appMeta.description || '',
 				version: appMeta.version || '0.0.0',
 				...(appMeta.icon && { icon: appMeta.icon }),
+				...(appMeta.scopes?.length && { scopes: appMeta.scopes }),
 			}));
 			console.log('[Relay] Sent app metadata, waiting for credentials...');
 		});

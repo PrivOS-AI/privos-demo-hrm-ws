@@ -37,6 +37,9 @@ async function start() {
 			description: pkg.description,
 			version: pkg.version,
 			icon: getIconDataUri(),
+			// Requested scopes — PrivOS grants this subset and uses it to gate the app's
+			// REST calls (app.rest()). See package.json `scopes`.
+			scopes: Array.isArray(pkg.scopes) ? pkg.scopes : undefined,
 		});
 
 		privosUrl = creds.privosUrl;
