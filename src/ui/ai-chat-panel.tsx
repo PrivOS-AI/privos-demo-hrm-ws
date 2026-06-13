@@ -27,6 +27,9 @@ interface Attachment {
 
 const POLL_INTERVAL_MS = 3000;
 const POLL_MAX_TRIES = 200; // ~10 min ceiling
+// A cold Sandbox VM (just spawned/reset) can take far longer than the bridge's
+// default 10s to ack an upload or enqueue, so give these calls a generous window.
+const SANDBOX_TIMEOUT_MS = 240000;
 
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -65,6 +68,7 @@ export default function AiChatPanel() {
         const base64 = dataUri.includes(',') ? dataUri.slice(dataUri.indexOf(',') + 1) : dataUri;
         const res = await restCall<{ tempId: string }>(app, 'POST', 'agents.sandbox.upload', {
           body: { roomId, fileName: file.name, mimeType: file.type || 'application/octet-stream', base64 },
+          timeoutMs: SANDBOX_TIMEOUT_MS,
         });
         if (!res.tempId) throw new Error('No tempId returned.');
         setAttachment({ tempId: res.tempId, name: file.name });
@@ -95,6 +99,7 @@ export default function AiChatPanel() {
           prompt: prompt || 'Summarise the attached document.',
           ...(sentAttachment && { fileIds: [sentAttachment.tempId] }),
         },
+        timeoutMs: SANDBOX_TIMEOUT_MS,
       });
       const attemptId = started.attemptId;
       if (!attemptId) throw new Error('No attemptId returned.');

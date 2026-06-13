@@ -15,9 +15,9 @@ export async function restCall<T = any>(
   app: McpApp,
   method: RestRequestParams['method'],
   path: string,
-  opts?: { query?: Record<string, string | number | boolean>; body?: any },
+  opts?: { query?: Record<string, string | number | boolean>; body?: any; timeoutMs?: number },
 ): Promise<T> {
-  const res = await app.rest({ method, path, query: opts?.query, body: opts?.body });
+  const res = await app.rest({ method, path, query: opts?.query, body: opts?.body, timeoutMs: opts?.timeoutMs });
   const body: any = res?.body ?? res;
   if (res?.statusCode && res.statusCode >= 400) {
     throw new Error(body?.error || body?.message || `Request failed (${res.statusCode})`);
