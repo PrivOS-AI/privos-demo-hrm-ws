@@ -174,12 +174,23 @@ export default function HRManagementDashboard() {
             base64Data: await readAsDataUri(value),
             mimeType: value.type || 'application/octet-stream',
           });
-          // FILE/DOCUMENT fields store an ARRAY of file refs; a concrete `_id`
-          // ref is rendered as-is (no path resolution). Same shape the native
-          // "attach to item" flow uses.
-          const fileRef = { _id: up?.file?._id, name: up?.file?.name || value.name };
-          if (!fileRef._id) throw new Error('Upload did not return a file id.');
-          customFields.push({ fieldId, value: [fileRef] });
+          const fid = up?.file?._id;
+          if (!fid) throw new Error('Upload did not return a file id.');
+          const mimeType = value.type || up?.file?.file_type || 'application/octet-stream';
+          // Single-file refs carry _id + display metadata; the hub viewer resolves
+          // the download by _id. A SINGLE `FILE` field stores one object; the
+          // multi/document fields store an array (matching the hub's own shape).
+          const ref = {
+            _id: fid,
+            name: up?.file?.name || value.name,
+            type: mimeType,
+            size: value.size,
+            file_type: mimeType,
+            file_size: value.size,
+          };
+          const fieldDef = (selectedList?.fieldDefinitions || []).find((f) => f._id === fieldId);
+          const isMulti = fieldDef?.type === 'FILE_MULTIPLE' || fieldDef?.type === 'DOCUMENT';
+          customFields.push({ fieldId, value: isMulti ? [ref] : ref });
         } else {
           customFields.push({ fieldId, value });
         }

@@ -113,8 +113,11 @@ export default function ListItemsTable({ app, listId, fields, refreshKey }: List
     const cf = item.customFields?.find((f) => f.fieldId === fieldId);
     if (!cf || cf.value === null || cf.value === undefined) return '—';
     if (typeof cf.value === 'boolean') return cf.value ? 'Yes' : 'No';
-    if (Array.isArray(cf.value)) return cf.value.join(', ');
-    return String(cf.value);
+    // File refs are objects (or arrays of them) with a `name`; show the filename
+    // rather than "[object Object]". Open the item in PrivOS to view/download.
+    const fmt = (v: any) => (v && typeof v === 'object' ? v.name || v._id || JSON.stringify(v) : String(v));
+    if (Array.isArray(cf.value)) return cf.value.map(fmt).join(', ');
+    return fmt(cf.value);
   }
 
   if (loading) return <p className="loading-text">Loading items...</p>;
