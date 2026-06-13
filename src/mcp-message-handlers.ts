@@ -9,6 +9,8 @@ import path from 'path';
 
 import _pkg from '../package.json';
 const pkg = _pkg as Record<string, any>;
+const TOOL_NAME = 'hr_management_dashboard';
+const UI_RESOURCE_URI = 'ui://demo-hr-management/form.html';
 
 /** Read icon as data URI from package.json icon path */
 function getIconDataUri(): string | undefined {
@@ -54,7 +56,7 @@ export function handleMcpMessage(method: string, _id: number, params: any): any 
 			return {
 				tools: [
 					{
-						name: 'hr_management_dashboard',
+						name: TOOL_NAME,
 						title: pkg.title || 'Demo HR Management',
 						description: pkg.description || 'HR management dashboard',
 						inputSchema: {
@@ -62,7 +64,24 @@ export function handleMcpMessage(method: string, _id: number, params: any): any 
 							properties: { roomId: { type: 'string' } },
 						},
 						_meta: {
-							ui: { resourceUri: 'ui://demo-hr-management/form.html' },
+							ui: { resourceUri: UI_RESOURCE_URI },
+						},
+					},
+				],
+			};
+
+		case 'tools/call':
+			if (params?.name !== TOOL_NAME) {
+				throw new Error(`Unknown tool: ${params?.name || '<missing>'}`);
+			}
+			return {
+				content: [
+					{
+						type: 'resource',
+						resource: {
+							uri: UI_RESOURCE_URI,
+							mimeType: 'text/html;profile=mcp-app',
+							text: getInlineUiHtml(),
 						},
 					},
 				],
@@ -72,7 +91,7 @@ export function handleMcpMessage(method: string, _id: number, params: any): any 
 			return {
 				contents: [
 					{
-						uri: params?.uri,
+						uri: params?.uri || UI_RESOURCE_URI,
 						mimeType: 'text/html;profile=mcp-app',
 						text: getInlineUiHtml(),
 					},
