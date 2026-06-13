@@ -36,6 +36,15 @@ const FIELD_TYPES = [
   { value: 'FILE', label: 'File' },
 ];
 
+// Sample custom fields seeded into every new list. The item's built-in `name`
+// covers "name", so these are the extra columns (phone/email/document/file).
+const SAMPLE_LIST_FIELDS = [
+  { name: 'Phone', type: 'TEXT' },
+  { name: 'Email', type: 'TEXT' },
+  { name: 'Document', type: 'DOCUMENT' },
+  { name: 'File', type: 'FILE' },
+];
+
 /** Read a File into a base64 data URI for the upload bridge. */
 function readAsDataUri(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -75,6 +84,12 @@ export default function HRManagementDashboard() {
 
   // Show/hide the add form
   const [showForm, setShowForm] = useState(false);
+
+  // Create-list state
+  const [showCreateList, setShowCreateList] = useState(false);
+  const [newListName, setNewListName] = useState('');
+  const [creatingList, setCreatingList] = useState(false);
+  const [createListError, setCreateListError] = useState<string | null>(null);
 
   // Load lists for the room once we know the roomId.
   useEffect(() => {
@@ -122,6 +137,30 @@ export default function HRManagementDashboard() {
 
   function setFieldValue(fieldId: string, value: any) {
     setFieldValues((prev) => ({ ...prev, [fieldId]: value }));
+  }
+
+  async function handleCreateList() {
+    const name = newListName.trim();
+    if (!name || !roomId) return;
+    setCreatingList(true);
+    setCreateListError(null);
+    try {
+      // POST lists.create seeds the list with the sample fields in one call and
+      // returns { list, defaultStage }. Needs lists:write + room owner/admin.
+      const body = await restCall<{ list: ListData }>(
+        app, 'POST', 'lists.create',
+        { body: { name, roomId, fieldDefinitions: SAMPLE_LIST_FIELDS } },
+      );
+      const created = body.list;
+      setLists((prev) => [...prev, created]);
+      setSelectedListId(created._id);
+      setShowCreateList(false);
+      setNewListName('');
+    } catch (err: any) {
+      setCreateListError(err?.message || 'Failed to create list.');
+    } finally {
+      setCreatingList(false);
+    }
   }
 
   async function handleAddField() {
@@ -230,19 +269,57 @@ export default function HRManagementDashboard() {
     <div className="container">
       <h1>Demo HR Management</h1>
 
-      {/* List selector */}
+      {/* List selector + create */}
       <div className="form-group">
         <label htmlFor="list-select">Select List</label>
-        <select
-          id="list-select"
-          value={selectedListId}
-          onChange={(e) => setSelectedListId(e.target.value)}
-        >
-          <option value="">-- Select a list --</option>
-          {availableLists.map((list) => (
-            <option key={list._id} value={list._id}>{list.name}</option>
-          ))}
-        </select>
+        <div className="list-select-row">
+          <select
+            id="list-select"
+            value={selectedListId}
+            onChange={(e) => setSelectedListId(e.target.value)}
+          >
+            <option value="">-- Select a list --</option>
+            {availableLists.map((list) => (
+              <option key={list._id} value={list._id}>{list.name}</option>
+            ))}
+          </select>
+          <button
+            type="button"
+            className="btn-new-list"
+            onClick={() => { setShowCreateList((v) => !v); setCreateListError(null); }}
+          >
+            + New List
+          </button>
+        </div>
+
+        {showCreateList && (
+          <div className="add-field-panel">
+            <div className="add-field-row">
+              <input
+                type="text"
+                value={newListName}
+                onChange={(e) => setNewListName(e.target.value)}
+                placeholder="New list name"
+                className="add-field-name"
+                onKeyDown={(e) => { if (e.key === 'Enter') handleCreateList(); }}
+              />
+            </div>
+            <p className="loading-text" style={{ margin: '4px 0' }}>
+              Seeds fields: Name, Phone, Email, Document, File
+            </p>
+            {createListError && <div className="error-message">{createListError}</div>}
+            <div className="add-field-actions">
+              <button type="button" className="btn-confirm-field"
+                onClick={handleCreateList} disabled={creatingList || !newListName.trim()}>
+                {creatingList ? 'Creating...' : 'Create'}
+              </button>
+              <button type="button" className="btn-cancel-field"
+                onClick={() => { setShowCreateList(false); setNewListName(''); setCreateListError(null); }}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {loadingList && <p className="loading-text">Loading...</p>}

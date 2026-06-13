@@ -783,3 +783,27 @@ textarea:focus {
   background: transparent;
   padding: 0;
 }
+
+/* List selector + create button row */
+.list-select-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.list-select-row select {
+  flex: 1;
+}
+.btn-new-list {
+  flex-shrink: 0;
+  padding: 10px 14px;
+  background: transparent;
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  border-radius: 6px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.btn-new-list:hover {
+  background: var(--bg-hover);
+}
