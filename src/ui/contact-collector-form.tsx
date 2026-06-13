@@ -162,18 +162,24 @@ export default function HRManagementDashboard() {
     setSubmitting(true);
     try {
       // Build custom fields. FILE fields hold a selected File — upload it to the room
-      // first (files:write), then store a `@Files/<name>` reference the hub resolves.
+      // first (files:write), then store the hub's canonical FILE value: an array of
+      // { _id, name } file refs (the UI resolves the download URL from _id).
       const entries = Object.entries(fieldValues).filter(([, v]) => v !== '' && v !== null && v !== undefined);
       const customFields: { fieldId: string; value: any }[] = [];
       for (const [fieldId, value] of entries) {
         if (value instanceof File) {
-          await app.uploadFile({
+          const up = await app.uploadFile({
             channelId: roomId,
             fileName: value.name,
             base64Data: await readAsDataUri(value),
             mimeType: value.type || 'application/octet-stream',
           });
-          customFields.push({ fieldId, value: `@Files/${value.name}` });
+          // FILE/DOCUMENT fields store an ARRAY of file refs; a concrete `_id`
+          // ref is rendered as-is (no path resolution). Same shape the native
+          // "attach to item" flow uses.
+          const fileRef = { _id: up?.file?._id, name: up?.file?.name || value.name };
+          if (!fileRef._id) throw new Error('Upload did not return a file id.');
+          customFields.push({ fieldId, value: [fileRef] });
         } else {
           customFields.push({ fieldId, value });
         }
@@ -366,7 +372,7 @@ function renderFieldInput(
     case 'FILE':
     case 'FILE_MULTIPLE':
     case 'DOCUMENT':
-      // Store the File object; the form uploads it on submit and saves a @Files/ reference.
+      // Store the File object; the form uploads it on submit and saves a { _id, name } ref.
       return (
         <div>
           <input id={id} type="file" onChange={(e) => onChange(e.target.files?.[0] || null)} />
