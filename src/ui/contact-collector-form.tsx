@@ -33,7 +33,18 @@ const FIELD_TYPES = [
   { value: 'CHECKBOX', label: 'Checkbox' },
   { value: 'URL', label: 'URL' },
   { value: 'SELECT', label: 'Dropdown' },
+  { value: 'FILE', label: 'File' },
 ];
+
+/** Read a File into a base64 data URI for the upload bridge. */
+function readAsDataUri(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(reader.error || new Error('Failed to read file'));
+    reader.readAsDataURL(file);
+  });
+}
 
 export default function HRManagementDashboard() {
   const app = usePrivosApp();
@@ -148,12 +159,26 @@ export default function HRManagementDashboard() {
     const stageId = stages[0]?._id;
     if (!stageId) { setError('This list has no stages to add records to.'); return; }
 
-    const customFields = Object.entries(fieldValues)
-      .filter(([, v]) => v !== '' && v !== null && v !== undefined)
-      .map(([fieldId, value]) => ({ fieldId, value }));
-
     setSubmitting(true);
     try {
+      // Build custom fields. FILE fields hold a selected File — upload it to the room
+      // first (files:write), then store a `@Files/<name>` reference the hub resolves.
+      const entries = Object.entries(fieldValues).filter(([, v]) => v !== '' && v !== null && v !== undefined);
+      const customFields: { fieldId: string; value: any }[] = [];
+      for (const [fieldId, value] of entries) {
+        if (value instanceof File) {
+          await app.uploadFile({
+            channelId: roomId,
+            fileName: value.name,
+            base64Data: await readAsDataUri(value),
+            mimeType: value.type || 'application/octet-stream',
+          });
+          customFields.push({ fieldId, value: `@Files/${value.name}` });
+        } else {
+          customFields.push({ fieldId, value });
+        }
+      }
+
       // POST items.create — note the hub field is `name` (not `title`).
       await restCall(app, 'POST', 'items.create', {
         body: { listId: selectedListId, name: itemName, stageId, customFields },
@@ -338,6 +363,16 @@ function renderFieldInput(
       return <input id={id} type="checkbox" checked={!!value} onChange={(e) => onChange(e.target.checked)} style={{ width: 'auto' }} />;
     case 'URL':
       return <input id={id} type="url" value={value} onChange={(e) => onChange(e.target.value)} placeholder="https://..." />;
+    case 'FILE':
+    case 'FILE_MULTIPLE':
+    case 'DOCUMENT':
+      // Store the File object; the form uploads it on submit and saves a @Files/ reference.
+      return (
+        <div>
+          <input id={id} type="file" onChange={(e) => onChange(e.target.files?.[0] || null)} />
+          {value instanceof File && <span className="file-size" style={{ marginInlineStart: 8 }}>{value.name}</span>}
+        </div>
+      );
     case 'SELECT':
       return (
         <select id={id} value={value} onChange={(e) => onChange(e.target.value)}>
