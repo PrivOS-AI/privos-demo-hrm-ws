@@ -43,6 +43,62 @@ Enter the Privos relay pairing URL: wss://privos.example.com/api/v1/mcp-apps.rel
 
 That's it. Next `npm start` just connects — no prompts.
 
+## Dev mode vs production mode
+
+The app serves its UI two different ways. Pick the one you need:
+
+| | Production (`npm start`) | Dev (`npm run dev`) |
+|--------|--------------------------|---------------------|
+| UI delivery | Vite build inlined in `resources/read` | Loaded live from the Vite dev server |
+| HMR (hot reload) | No | **Yes** |
+| Breakpoints | Minified, hard | **Full TypeScript breakpoints** |
+| Refresh after edit | rebuild + manual refresh | automatic |
+
+### Production — `npm start`
+
+```bash
+npm start
+```
+
+Runs `vite build` then connects the relay. UI is bundled and inlined into the MCP
+response — self-contained, nothing to reach over the network. Use this for demos
+and deployment.
+
+### Dev — `npm run dev`
+
+```bash
+npm run dev
+```
+
+Starts a live Vite dev server and points the hub iframe at it, so you get HMR and
+real breakpoints while editing `src/ui/`. The relay WebSocket still carries the
+MCP protocol and `app.rest()` calls — only the **UI assets** come from Vite.
+
+Choose how the hub iframe reaches the Vite server with `DEV_TUNNEL` (in `.env`):
+
+```bash
+# Same machine (default): you open the hub in a browser on the SAME computer
+# that runs `npm run dev`. The iframe loads http://localhost:5179 directly —
+# no tunnel, no extra tools.
+DEV_TUNNEL=localhost      # default, can be omitted
+
+# Different machine: the hub is opened on another computer/device. A public
+# tunnel is needed so that browser can reach your Vite server.
+DEV_TUNNEL=cloudflared    # spins up a cloudflared quick tunnel (binary required)
+```
+
+Optional `.env` overrides:
+
+```bash
+VITE_PORT=5179            # local Vite port (default 5179)
+PUBLIC_URL=https://...    # reuse your own tunnel instead of spawning cloudflared
+                          # (only used when DEV_TUNNEL=cloudflared)
+```
+
+**Setting breakpoints:** open the hub in Chrome → DevTools → Sources → find the
+iframe origin (`localhost:5179` or your tunnel host) → set breakpoints in the
+`.tsx` source directly (Vite serves source maps).
+
 ## Differences from direct version
 
 | Aspect | Direct (privos-demo-hrm) | Relay (this repo) |
@@ -60,7 +116,8 @@ That's it. Next `npm start` just connects — no prompts.
 src/
 ├── server.ts                # Entry: pairing flow + relay connect
 ├── relay-client.ts          # WS client: pairing, OAuth, auto-reconnect
-├── mcp-message-handlers.ts  # MCP handlers, inline UI from Vite build
+├── mcp-message-handlers.ts  # MCP handlers; inline UI (prod) or Vite dev URL (dev)
+├── dev-server.ts            # Dev mode: Vite dev server + localhost/cloudflared transport
 └── ui/                      # React UI (identical to direct version)
     ├── App.tsx
     ├── main.tsx

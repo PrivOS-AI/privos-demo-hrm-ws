@@ -27,6 +27,17 @@ const appIcon = getIconDataUri();
 let cachedUiHtml: string | null = null;
 let lastBuildMtime = 0;
 
+/**
+ * When set, the UI is served live from a Vite dev server at this public origin
+ * (HMR + breakpoints) instead of an inlined production bundle. See dev-server.ts.
+ */
+let devPublicUrl: string | null = null;
+
+/** Enable dev mode: iframe loads UI from the Vite dev server at `publicUrl`. */
+export function setDevPublicUrl(publicUrl: string): void {
+	devPublicUrl = publicUrl.replace(/\/$/, '');
+}
+
 /** Clear cache so next resources/read picks up rebuilt UI */
 export function invalidateUiCache(): void {
 	cachedUiHtml = null;
@@ -104,10 +115,43 @@ export function handleMcpMessage(method: string, _id: number, params: any): any 
 }
 
 /**
+ * Build HTML referencing a live Vite dev server (HMR + TypeScript breakpoints).
+ * Loads @vite/client and the React Fast Refresh preamble cross-origin from the
+ * tunnel, then the real entry module — equivalent to what Vite injects into a
+ * transformed index.html, but emitted here since the relay serves the document.
+ */
+function getDevUiHtml(publicUrl: string): string {
+	const base = `${publicUrl}/ui`;
+	return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>${pkg.title || 'Demo HR Management'} (dev)</title>
+  <script type="module" src="${base}/@vite/client"></script>
+  <script type="module">
+    import RefreshRuntime from "${base}/@react-refresh";
+    RefreshRuntime.injectIntoGlobalHook(window);
+    window.$RefreshReg$ = () => {};
+    window.$RefreshSig$ = () => (type) => type;
+    window.__vite_plugin_react_preamble_installed__ = true;
+  </script>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="module" src="${base}/main.tsx"></script>
+</body>
+</html>`;
+}
+
+/**
  * Build a fully self-contained HTML page with inlined JS and CSS.
  * Reads from dist/ui/ (Vite build output). Run `npm run build` first.
  */
 function getInlineUiHtml(): string {
+	// Dev mode: serve live from the Vite dev server for HMR + breakpoints.
+	if (devPublicUrl) return getDevUiHtml(devPublicUrl);
+
 	const distDir = path.join(__dirname, '../dist/ui');
 
 	// In dev watch mode, check if build output changed since last cache

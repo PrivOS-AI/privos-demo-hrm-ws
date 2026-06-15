@@ -8,7 +8,7 @@ import fs from 'fs';
 import path from 'path';
 
 import { connectRelay, pairWithPrivos } from './relay-client';
-import { handleMcpMessage } from './mcp-message-handlers';
+import { handleMcpMessage, setDevPublicUrl } from './mcp-message-handlers';
 import _pkg from '../package.json';
 const pkg = _pkg as Record<string, any>;
 
@@ -26,6 +26,14 @@ async function start() {
 	let privosUrl = process.env.PRIVOS_URL;
 	let clientId = process.env.CLIENT_ID;
 	let clientSecret = process.env.CLIENT_SECRET;
+
+	// Dev mode (npm run dev): serve UI live from a Vite dev server over a public
+	// tunnel so the iframe gets HMR + breakpoints. Production keeps the inline bundle.
+	if (process.env.PRIVOS_DEV_UI === '1') {
+		const { startDevUiServer } = await import('./dev-server');
+		const dev = await startDevUiServer();
+		setDevPublicUrl(dev.publicUrl);
+	}
 
 	// First run: no credentials — start pairing flow
 	if (!privosUrl || !clientId || !clientSecret) {
