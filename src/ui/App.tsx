@@ -4,13 +4,15 @@ import { ThemeProvider, ThemeToggle } from './theme-provider';
 import HRManagementDashboard from './contact-collector-form';
 import FileUploadPanel from './file-upload-panel';
 import AiChatPanel from './ai-chat-panel';
+import SkillsPanel from './skills-panel';
 
-type Tab = 'records' | 'files' | 'chat';
+type Tab = 'records' | 'files' | 'chat' | 'skills';
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'records', label: 'Records' },
   { id: 'files', label: 'Files' },
   { id: 'chat', label: 'AI Chat' },
+  { id: 'skills', label: 'Skills' },
 ];
 
 function ThemedApp() {
@@ -38,6 +40,7 @@ function ThemedApp() {
       {tab === 'records' && <HRManagementDashboard />}
       {tab === 'files' && <FileUploadPanel />}
       {tab === 'chat' && <AiChatPanel />}
+      {tab === 'skills' && <SkillsPanel />}
     </ThemeProvider>
   );
 }
