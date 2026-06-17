@@ -57,7 +57,14 @@ export function handleMcpMessage(method: string, _id: number, params: any): any 
 						},
 					},
 				},
-				serverInfo: { name: pkg.title || pkg.name, version: pkg.version, ...(appIcon && { icon: appIcon }) },
+				serverInfo: {
+				name: pkg.title || pkg.name,
+				version: pkg.version,
+				...(appIcon && { icon: appIcon }),
+				// Advertise the manifest's requested scopes so the hub can refresh
+				// `requestedScopes` on reconnect/refresh without a re-pair.
+				...(Array.isArray(pkg.scopes) && { scopes: pkg.scopes }),
+			},
 			};
 
 		case 'notifications/initialized':

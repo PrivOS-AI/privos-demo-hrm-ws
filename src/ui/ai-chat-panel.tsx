@@ -133,7 +133,7 @@ export default function AiChatPanel() {
   }
 
   return (
-    <div className="container">
+    <div className="container chat-container">
       <h1>AI Chat</h1>
 
       <div className="chat-log" ref={scrollRef}>
@@ -184,7 +184,7 @@ export default function AiChatPanel() {
         </button>
         <textarea
           className="chat-input"
-          rows={2}
+          rows={4}
           value={input}
           placeholder="Type a message, Enter to send"
           onChange={(e) => setInput(e.target.value)}

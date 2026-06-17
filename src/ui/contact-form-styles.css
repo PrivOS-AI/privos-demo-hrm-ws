@@ -232,16 +232,26 @@ select:focus {
 
 .chat-input-row {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   align-items: flex-end;
 }
 
+/* Chat panel is wider than the default 480px form container so the input
+   and message log have more room. */
+.chat-container {
+  max-width: 760px;
+}
+
 .chat-input {
   flex: 1;
-  padding: 8px;
+  min-width: 360px;
+  min-height: 96px;
+  padding: 12px;
   border: 1px solid var(--border);
   border-radius: 6px;
-  font-size: 0.9rem;
+  font-size: 0.95rem;
+  line-height: 1.5;
   font-family: inherit;
   resize: vertical;
   box-sizing: border-box;
