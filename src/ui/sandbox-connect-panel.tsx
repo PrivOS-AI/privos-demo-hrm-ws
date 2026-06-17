@@ -62,10 +62,11 @@ export default function SandboxConnectPanel() {
     setError(null);
     setPushedMsg(null);
     try {
-      const res = await restCall<{ privosSandboxId?: string; pushedAt?: string }>(
+      await restCall<{ privosSandboxId?: string; pushedAt?: string }>(
         app, 'POST', 'agents.sandbox.pushBotKey', { body: { roomId } },
       );
-      setPushedMsg(`Connected — sandbox ${res?.privosSandboxId ?? 'project'} provisioned.`);
+      // Don't surface privosSandboxId — it's the internal board host, not user-facing.
+      setPushedMsg('Connected — sandbox provisioned.');
       await loadStatus();
     } catch (err: any) {
       // A non-admin / non-owner hits the server-side authorizePushBotKey check here.
