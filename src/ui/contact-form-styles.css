@@ -794,6 +794,32 @@ textarea:focus {
   padding: 0;
 }
 
+/* Collapsible structured-JSON response block (agents.sandbox.attempt-status `json`) */
+.chat-json-block {
+  margin-top: 8px;
+  border: 1px solid var(--border-light);
+  border-radius: 6px;
+  background: var(--bg-input);
+}
+.chat-json-block > summary {
+  cursor: pointer;
+  padding: 6px 10px;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  user-select: none;
+}
+.chat-json-pre {
+  margin: 0;
+  padding: 10px;
+  border-top: 1px solid var(--border-light);
+  max-height: 320px;
+  overflow: auto;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.78rem;
+  white-space: pre;
+  color: var(--text);
+}
+
 /* List selector + create button row */
 .list-select-row {
   display: flex;

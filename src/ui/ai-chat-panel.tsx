@@ -5,9 +5,11 @@
  * Flow (all as the current user, scope `sandbox:generate`):
  *   - attach: POST agents.sandbox.upload  -> { tempId }      (file → sandbox temp store)
  *   - send:   POST agents.sandbox.generate-async { fileIds } -> { attemptId }
- *   - poll:   GET  agents.sandbox.attempt-status            -> { status, text? }
+ *   - poll:   GET  agents.sandbox.attempt-status            -> { status, text?, json? }
  * The bridge times out long requests (~10s) so we enqueue + poll. The assistant
- * reply is rendered in full, segmented into markdown blocks.
+ * reply is rendered in full, segmented into markdown blocks; on a terminal status
+ * the response also carries `json` — the structured response blocks the agent
+ * emitted (tool calls, result summary, content blocks) — shown in a collapsible panel.
  */
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { usePrivosApp, usePrivosContext } from '@privos/app-react';
@@ -18,6 +20,8 @@ interface ChatMessage {
   role: 'user' | 'assistant';
   text: string;
   fileName?: string;
+  // Structured response blocks from the attempt logs (assistant turns only).
+  json?: any[];
 }
 
 interface Attachment {
@@ -106,18 +110,20 @@ export default function AiChatPanel() {
 
       // 2. Poll until the attempt reaches a terminal status.
       let text = '';
+      let json: any[] | undefined;
       for (let i = 0; i < POLL_MAX_TRIES; i++) {
         await delay(POLL_INTERVAL_MS);
-        const res = await restCall<{ status: string; text?: string }>(app, 'GET', 'agents.sandbox.attempt-status', {
+        const res = await restCall<{ status: string; text?: string; json?: any[] }>(app, 'GET', 'agents.sandbox.attempt-status', {
           query: { roomId, attemptId },
         });
         if (res.status !== 'running') {
           text = res.text || `(no text — status: ${res.status})`;
+          json = Array.isArray(res.json) ? res.json : undefined;
           break;
         }
       }
       if (!text) text = '(timed out waiting for the agent)';
-      setMessages((m) => [...m, { role: 'assistant', text }]);
+      setMessages((m) => [...m, { role: 'assistant', text, json }]);
     } catch (err: any) {
       setError(err?.message || 'Generation failed.');
     } finally {
@@ -145,6 +151,12 @@ export default function AiChatPanel() {
             <div className="chat-bubble">
               {m.fileName && <div className="chat-file-tag">📎 {m.fileName}</div>}
               {m.role === 'assistant' ? <MarkdownBlocks text={m.text} /> : m.text}
+              {m.role === 'assistant' && m.json && m.json.length > 0 && (
+                <details className="chat-json-block">
+                  <summary>Structured JSON response ({m.json.length} block{m.json.length === 1 ? '' : 's'})</summary>
+                  <pre className="chat-json-pre"><code>{JSON.stringify(m.json, null, 2)}</code></pre>
+                </details>
+              )}
             </div>
           </div>
         ))}
