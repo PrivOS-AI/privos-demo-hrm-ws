@@ -794,6 +794,52 @@ textarea:focus {
   padding: 0;
 }
 
+/* Live, typed agent blocks (agents.sandbox.attempt-status partial json stream) */
+.agent-blocks {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.agent-block {
+  animation: agent-block-in 0.18s ease-out;
+}
+@keyframes agent-block-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: none; }
+}
+.agent-block-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  cursor: default;
+}
+.agent-block-tool,
+.agent-block-result-box {
+  border: 1px solid var(--border-light);
+  border-radius: 6px;
+  background: var(--bg-input);
+  padding: 6px 10px;
+}
+.agent-block-result-box > summary {
+  cursor: pointer;
+  user-select: none;
+}
+.agent-block-pre {
+  margin: 6px 0 0;
+  padding: 8px;
+  background: var(--bg-card);
+  border-radius: 4px;
+  max-height: 240px;
+  overflow: auto;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.76rem;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--text);
+}
+
 /* Collapsible structured-JSON response block (agents.sandbox.attempt-status `json`) */
 .chat-json-block {
   margin-top: 8px;

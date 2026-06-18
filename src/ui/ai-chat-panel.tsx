@@ -5,16 +5,16 @@
  * Flow (all as the current user, scope `sandbox:generate`):
  *   - attach: POST agents.sandbox.upload  -> { tempId }      (file → sandbox temp store)
  *   - send:   POST agents.sandbox.generate-async { fileIds } -> { attemptId }
- *   - poll:   GET  agents.sandbox.attempt-status            -> { status, text?, json? }
- * The bridge times out long requests (~10s) so we enqueue + poll. The assistant
- * reply is rendered in full, segmented into markdown blocks; on a terminal status
- * the response also carries `json` — the structured response blocks the agent
- * emitted (tool calls, result summary, content blocks) — shown in a collapsible panel.
+ *   - poll:   GET  agents.sandbox.attempt-status?partial=1   -> { status, text?, json? }
+ * The bridge times out long requests (~10s) so we enqueue + poll. We poll with
+ * `partial=1` so each tick returns the blocks emitted so far, and render them
+ * block-by-block (typed out) as the agent generates — see agent-blocks.tsx.
  */
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { usePrivosApp, usePrivosContext } from '@privos/app-react';
 import { restCall } from './privos-rest';
 import MarkdownBlocks from './markdown-blocks';
+import AgentBlocks, { flattenAgentBlocks } from './agent-blocks';
 
 interface ChatMessage {
   role: 'user' | 'assistant';
@@ -22,6 +22,15 @@ interface ChatMessage {
   fileName?: string;
   // Structured response blocks from the attempt logs (assistant turns only).
   json?: any[];
+  // True while the attempt is still running and blocks are streaming in.
+  streaming?: boolean;
+}
+
+/** Replace the trailing assistant message (the streaming one) with updated fields. */
+function patchStreamingMessage(messages: ChatMessage[], patch: Partial<ChatMessage>): ChatMessage[] {
+  const last = messages[messages.length - 1];
+  if (!last || last.role !== 'assistant') return messages;
+  return [...messages.slice(0, -1), { ...last, ...patch }];
 }
 
 interface Attachment {
@@ -29,8 +38,8 @@ interface Attachment {
   name: string;
 }
 
-const POLL_INTERVAL_MS = 3000;
-const POLL_MAX_TRIES = 200; // ~10 min ceiling
+const POLL_INTERVAL_MS = 1200; // poll faster so streamed blocks appear promptly
+const POLL_MAX_TRIES = 500; // ~10 min ceiling at 1.2s/poll
 // A cold Sandbox VM (just spawned/reset) can take far longer than the bridge's
 // default 10s to ack an upload or enqueue, so give these calls a generous window.
 const SANDBOX_TIMEOUT_MS = 240000;
@@ -93,7 +102,12 @@ export default function AiChatPanel() {
     setError(null);
     const sentAttachment = attachment;
     setAttachment(null);
-    setMessages((m) => [...m, { role: 'user', text: prompt || '(document)', fileName: sentAttachment?.name }]);
+    // Add the user message + an empty streaming assistant placeholder to fill in live.
+    setMessages((m) => [
+      ...m,
+      { role: 'user', text: prompt || '(document)', fileName: sentAttachment?.name },
+      { role: 'assistant', text: '', json: [], streaming: true },
+    ]);
     setBusy(true);
     try {
       // 1. Enqueue — attach the uploaded document via fileIds when present.
@@ -108,24 +122,29 @@ export default function AiChatPanel() {
       const attemptId = started.attemptId;
       if (!attemptId) throw new Error('No attemptId returned.');
 
-      // 2. Poll until the attempt reaches a terminal status.
-      let text = '';
-      let json: any[] | undefined;
+      // 2. Poll with partial=1 until terminal, streaming blocks into the placeholder.
+      let terminal = false;
       for (let i = 0; i < POLL_MAX_TRIES; i++) {
         await delay(POLL_INTERVAL_MS);
         const res = await restCall<{ status: string; text?: string; json?: any[] }>(app, 'GET', 'agents.sandbox.attempt-status', {
-          query: { roomId, attemptId },
+          query: { roomId, attemptId, partial: '1' },
         });
-        if (res.status !== 'running') {
-          text = res.text || `(no text — status: ${res.status})`;
-          json = Array.isArray(res.json) ? res.json : undefined;
+        const json = Array.isArray(res.json) ? res.json : undefined;
+        const running = res.status === 'running';
+        setMessages((m) => patchStreamingMessage(m, { text: res.text || '', json, streaming: running }));
+        if (!running) {
+          terminal = true;
+          // On a terminal status with no blocks/text, surface the status.
+          if (!res.text && !(json && flattenAgentBlocks(json).length)) {
+            setMessages((m) => patchStreamingMessage(m, { text: `(no response — status: ${res.status})` }));
+          }
           break;
         }
       }
-      if (!text) text = '(timed out waiting for the agent)';
-      setMessages((m) => [...m, { role: 'assistant', text, json }]);
+      if (!terminal) setMessages((m) => patchStreamingMessage(m, { text: '(timed out waiting for the agent)', streaming: false }));
     } catch (err: any) {
       setError(err?.message || 'Generation failed.');
+      setMessages((m) => patchStreamingMessage(m, { streaming: false }));
     } finally {
       setBusy(false);
     }
@@ -146,25 +165,20 @@ export default function AiChatPanel() {
         {messages.length === 0 && !busy && (
           <p className="empty-text">Ask the Sandbox agent anything, or attach a document to ground the answer.</p>
         )}
-        {messages.map((m, i) => (
-          <div key={i} className={`chat-msg chat-${m.role}`}>
-            <div className="chat-bubble">
-              {m.fileName && <div className="chat-file-tag">📎 {m.fileName}</div>}
-              {m.role === 'assistant' ? <MarkdownBlocks text={m.text} /> : m.text}
-              {m.role === 'assistant' && m.json && m.json.length > 0 && (
-                <details className="chat-json-block">
-                  <summary>Structured JSON response ({m.json.length} block{m.json.length === 1 ? '' : 's'})</summary>
-                  <pre className="chat-json-pre"><code>{JSON.stringify(m.json, null, 2)}</code></pre>
-                </details>
-              )}
+        {messages.map((m, i) => {
+          const hasBlocks = m.role === 'assistant' && m.json && flattenAgentBlocks(m.json).length > 0;
+          return (
+            <div key={i} className={`chat-msg chat-${m.role}`}>
+              <div className="chat-bubble">
+                {m.fileName && <div className="chat-file-tag">📎 {m.fileName}</div>}
+                {m.role !== 'assistant' && m.text}
+                {m.role === 'assistant' && hasBlocks && <AgentBlocks json={m.json} streaming={m.streaming} />}
+                {m.role === 'assistant' && !hasBlocks && m.text && <MarkdownBlocks text={m.text} />}
+                {m.role === 'assistant' && !hasBlocks && !m.text && m.streaming && <span className="chat-thinking">Thinking…</span>}
+              </div>
             </div>
-          </div>
-        ))}
-        {busy && (
-          <div className="chat-msg chat-assistant">
-            <div className="chat-bubble chat-thinking">Thinking…</div>
-          </div>
-        )}
+          );
+        })}
       </div>
 
       {error && <div className="error-message">{error}</div>}

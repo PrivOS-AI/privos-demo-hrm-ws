@@ -99,6 +99,33 @@ PUBLIC_URL=https://...    # reuse your own tunnel instead of spawning cloudflare
 iframe origin (`localhost:5179` or your tunnel host) → set breakpoints in the
 `.tsx` source directly (Vite serves source maps).
 
+## AI Chat — streaming blocks
+
+The **AI Chat** tab talks to the PrivOS Sandbox agent and renders its reply
+**block-by-block, typed out, as the agent generates** — not as one final dump.
+
+Flow (all as the current user, scope `sandbox:generate`):
+
+1. `POST agents.sandbox.generate-async { roomId, prompt, fileIds? }` → `{ attemptId }` (returns immediately; the bridge times out long requests at ~10s, so we enqueue + poll).
+2. `GET agents.sandbox.attempt-status?roomId&attemptId&partial=1` every ~1.2s. The
+   `partial=1` flag makes a still-`running` poll return the `text`/`json` accumulated so
+   far, so blocks stream in instead of appearing only at the end.
+3. On a terminal status (`completed`/`failed`/`cancelled`) the final `text`/`json` is returned.
+
+`json` is the agent's structured response events (assistant text, `tool_use`, `tool_result`,
+`result`). `agent-blocks.tsx` flattens those into ordered display blocks — scoped to the
+current turn (replayed history skipped) — and renders each:
+
+- **text / result** → typed out like a typewriter (reveal-only, so growth keeps typing).
+- **tool call** → a labeled card with the tool name + input.
+- **tool result** → a collapsible card.
+
+Optional: attach a document first via `POST agents.sandbox.upload` → `{ tempId }`, then pass
+it in `generate-async`'s `fileIds` to ground the answer.
+
+> Note: granularity is **event-level** (per assistant message / tool call), not token-level
+> — token deltas are hub-internal and not on the REST surface.
+
 ## Differences from direct version
 
 | Aspect | Direct (privos-demo-hrm) | Relay (this repo) |
@@ -121,5 +148,8 @@ src/
 └── ui/                      # React UI (identical to direct version)
     ├── App.tsx
     ├── main.tsx
+    ├── ai-chat-panel.tsx     # AI Chat: enqueue + poll attempt-status?partial=1, stream blocks
+    ├── agent-blocks.tsx      # Flatten attempt json events → ordered, typed live blocks
+    ├── markdown-blocks.tsx   # Minimal markdown renderer for assistant text
     └── ...
 ```
