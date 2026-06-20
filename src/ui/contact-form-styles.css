@@ -919,7 +919,7 @@ textarea:focus {
   color: var(--text);
 }
 
-/* Collapsible structured-JSON response block (agents.sandbox.attempt-status `json`) */
+/* Collapsible structured-JSON response block (native AI Chat ai-messages toolUses) */
 .chat-json-block {
   margin-top: 8px;
   border: 1px solid var(--border-light);
