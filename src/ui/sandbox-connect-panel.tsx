@@ -7,9 +7,15 @@
  *   - status: GET  agents.sandbox.botKeyStatus?roomId=...
  *   - push:   POST agents.sandbox.pushBotKey { roomId }
  *
- * Note: the push call additionally requires the logged-in user to be a room admin
+ * It also demos waking an idle VM WITHOUT re-pushing the key, gated by the
+ * `sandbox:wake` scope:
+ *   - wake:    POST agents.sandbox.wake { roomId }   -> { accepted: true }
+ *   - vmState: GET  agents.sandbox.vmState?roomId=... -> { vmState, errorMessage? }
+ *
+ * Note: both push and wake additionally require the logged-in user to be a room admin
  * (`edit-room`) and the bot's owner (or hold `edit-bot`). The hub enforces that
  * server-side — `status.canPush` reflects it, so a non-admin sees a disabled button.
+ * `vmState` is a pure read — it never wakes the VM.
  */
 import { useState, useEffect, useCallback } from 'react';
 import { usePrivosApp, usePrivosContext } from '@privos/app-react';
@@ -35,6 +41,8 @@ export default function SandboxConnectPanel() {
   const [pushing, setPushing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pushedMsg, setPushedMsg] = useState<string | null>(null);
+  const [waking, setWaking] = useState(false);
+  const [vmState, setVmState] = useState<string | null>(null);
 
   // Read the current provisioning / push status for this room.
   const loadStatus = useCallback(async () => {
@@ -73,6 +81,35 @@ export default function SandboxConnectPanel() {
       setError(err?.message || 'Failed to push bot key (room admin required).');
     } finally {
       setPushing(false);
+    }
+  }
+
+  // Wake/establish the room's VM without re-pushing the key, then poll vmState
+  // until it settles (running / error / not_found). Coalesces with any in-flight
+  // establishment server-side, so calling it repeatedly is safe.
+  async function handleWake() {
+    if (!roomId) return;
+    setWaking(true);
+    setError(null);
+    setVmState('starting');
+    try {
+      await restCall<{ accepted: boolean }>(app, 'POST', 'agents.sandbox.wake', { body: { roomId } });
+      // Poll vmState (pure read — does not wake) up to ~60s for it to settle.
+      for (let i = 0; i < 30; i++) {
+        await new Promise((r) => setTimeout(r, 2000));
+        const { vmState: s, errorMessage } = await restCall<{ vmState: string; errorMessage?: string }>(
+          app, 'GET', 'agents.sandbox.vmState', { query: { roomId } },
+        );
+        setVmState(s);
+        if (s === 'running' || s === 'not_found') break;
+        if (s === 'error') { setError(errorMessage || 'VM failed to start.'); break; }
+      }
+    } catch (err: any) {
+      // A non-admin / non-owner hits the server-side authorizePushBotKey check here.
+      setError(err?.message || 'Failed to wake VM (room admin required).');
+      setVmState(null);
+    } finally {
+      setWaking(false);
     }
   }
 
@@ -125,6 +162,25 @@ export default function SandboxConnectPanel() {
           <span className="file-size" style={{ marginInlineStart: 8 }}>Room admin required.</span>
         )}
       </div>
+
+      {/* Wake an idle VM without re-pushing the bot key (sandbox:wake scope). */}
+      {connected && (
+        <div className="form-actions" style={{ marginBlockStart: 8 }}>
+          <button
+            type="button"
+            className="btn-submit"
+            onClick={handleWake}
+            disabled={waking || loading || !canPush}
+          >
+            {waking ? 'Waking…' : 'Wake VM'}
+          </button>
+          {vmState && (
+            <span className="file-size" style={{ marginInlineStart: 8 }}>
+              VM: {vmState}{vmState === 'running' ? ' ✓' : ''}
+            </span>
+          )}
+        </div>
+      )}
     </div>
   );
 }

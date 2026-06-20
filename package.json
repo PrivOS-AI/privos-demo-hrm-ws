@@ -5,7 +5,7 @@
   "description": "HR management demo (relay WebSocket) -- connects to Privos via WS, no public URL needed",
   "title": "Demo HR Management (Relay)",
   "icon": "/public/icon.svg",
-  "scopes": ["lists:read", "lists:write", "files:read", "files:write", "sandbox:skills:use", "sandbox:botkey:push", "sandbox:ai-chat", "sandbox:ai-chat:write"],
+  "scopes": ["lists:read", "lists:write", "files:read", "files:write", "sandbox:skills:use", "sandbox:botkey:push", "sandbox:wake", "sandbox:ai-chat", "sandbox:ai-chat:write"],
   "homepage": "https://privos.ai",
   "author": {
     "name": "PrivOS AI",
