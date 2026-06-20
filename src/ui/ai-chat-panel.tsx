@@ -1,48 +1,56 @@
 /**
- * AI chat panel — talk to the PrivOS Sandbox agent from inside the app iframe,
- * optionally grounding the answer on an attached document.
+ * AI Chat panel — the room's **native** AI Chat, driven over REST-first so the
+ * conversation persists as AIChatSession/AIMessage rows (browsable in the AI
+ * History tab) and the pending/generating reply is visible while it streams.
  *
- * Flow (all as the current user, scope `sandbox:generate`):
- *   - attach: POST agents.sandbox.upload  -> { tempId }      (file → sandbox temp store)
- *   - send:   POST agents.sandbox.generate-async { fileIds } -> { attemptId }
- *   - poll:   GET  agents.sandbox.attempt-status?partial=1   -> { status, text?, json? }
- * The bridge times out long requests (~10s) so we enqueue + poll. We poll with
- * `partial=1` so each tick returns the blocks emitted so far, and render them
- * block-by-block (typed out) as the agent generates — see agent-blocks.tsx.
+ * Flow (all as the current user):
+ *   0. (optional) app.uploadFile() -> { file: { _id } }                       [files:write]
+ *   1. POST ai-messages.send { entityType:'room-chat', entityId:roomId, roomId,
+ *      flowChatId:roomId, content, fileIds?, sessionId? } -> { aiMessage, sessionId }
+ *      (creates the session on first send; stages the worker job)            [sandbox:ai-chat:write]
+ *   2. POST ai-messages.startGeneration { messageId: aiMessage._id }         [sandbox:ai-chat:write]
+ *   3. GET  ai-messages.list?sessionId  (poll) -> messages w/ live content   [sandbox:ai-chat]
+ *
+ * Each AI message carries `content` (streamed text) plus `toolUses` — the
+ * structured response blocks — which we render as cards + a JSON view.
  */
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { usePrivosApp, usePrivosContext } from '@privos/app-react';
 import { restCall } from './privos-rest';
 import MarkdownBlocks from './markdown-blocks';
-import AgentBlocks, { flattenAgentBlocks } from './agent-blocks';
 
-interface ChatMessage {
-  role: 'user' | 'assistant';
-  text: string;
-  fileName?: string;
-  // Structured response blocks from the attempt logs (assistant turns only).
-  json?: any[];
-  // True while the attempt is still running and blocks are streaming in.
-  streaming?: boolean;
+interface ToolUse {
+  toolId?: string;
+  toolName?: string;
+  input?: any;
 }
 
-/** Replace the trailing assistant message (the streaming one) with updated fields. */
-function patchStreamingMessage(messages: ChatMessage[], patch: Partial<ChatMessage>): ChatMessage[] {
-  const last = messages[messages.length - 1];
-  if (!last || last.role !== 'assistant') return messages;
-  return [...messages.slice(0, -1), { ...last, ...patch }];
+interface ServerMessage {
+  _id: string;
+  type: 'user' | 'ai';
+  content: string;
+  status?: string;
+  toolUses?: ToolUse[];
+}
+
+interface ChatMessage {
+  id: string;
+  role: 'user' | 'assistant';
+  text: string;
+  streaming?: boolean;
+  toolUses?: ToolUse[];
 }
 
 interface Attachment {
-  tempId: string;
+  fileId: string;
   name: string;
 }
 
-const POLL_INTERVAL_MS = 1200; // poll faster so streamed blocks appear promptly
+const POLL_INTERVAL_MS = 1200;
 const POLL_MAX_TRIES = 500; // ~10 min ceiling at 1.2s/poll
-// A cold Sandbox VM (just spawned/reset) can take far longer than the bridge's
-// default 10s to ack an upload or enqueue, so give these calls a generous window.
-const SANDBOX_TIMEOUT_MS = 240000;
+// AIMessageStatus terminal values (see hub IAIMessage.ts).
+const AI_TERMINAL = new Set(['completed', 'failed', 'cancelled']);
+const UPLOAD_TIMEOUT_MS = 60000;
 
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -54,6 +62,42 @@ const readAsDataUri = (file: File): Promise<string> =>
     reader.readAsDataURL(file);
   });
 
+/** Map the native session message list into renderable chat messages. */
+function mapMessages(list: ServerMessage[]): ChatMessage[] {
+  return list.map((m) => ({
+    id: m._id,
+    role: m.type === 'user' ? 'user' : 'assistant',
+    text: m.content || '',
+    streaming: m.type === 'ai' && !AI_TERMINAL.has(m.status || ''),
+    toolUses: Array.isArray(m.toolUses) ? m.toolUses : undefined,
+  }));
+}
+
+/** Render an assistant reply: streamed text + structured tool-use blocks. */
+function AssistantBlocks({ m }: { m: ChatMessage }) {
+  const tools = m.toolUses || [];
+  return (
+    <>
+      {m.text ? <MarkdownBlocks text={m.text} /> : m.streaming ? <span className="chat-thinking">Thinking…</span> : null}
+      {tools.map((t, i) => (
+        <div key={i} className="agent-block agent-block-tool">
+          <div className="agent-block-label">Tool · {t.toolName || 'unknown'}</div>
+          {t.input !== undefined && t.input !== null && (
+            <pre className="agent-block-pre">{typeof t.input === 'string' ? t.input : JSON.stringify(t.input, null, 2)}</pre>
+          )}
+        </div>
+      ))}
+      {tools.length > 0 && (
+        <details className="chat-json-block">
+          <summary>Structured JSON response ({tools.length} block{tools.length === 1 ? '' : 's'})</summary>
+          <pre className="chat-json-pre"><code>{JSON.stringify(tools, null, 2)}</code></pre>
+        </details>
+      )}
+      {m.streaming && m.text && <span className="chat-streaming-caret">▌</span>}
+    </>
+  );
+}
+
 export default function AiChatPanel() {
   const app = usePrivosApp();
   const { roomId } = usePrivosContext();
@@ -64,6 +108,7 @@ export default function AiChatPanel() {
   const [uploading, setUploading] = useState(false);
   const [attachment, setAttachment] = useState<Attachment | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const sessionIdRef = useRef<string | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const fileRef = useRef<HTMLInputElement | null>(null);
 
@@ -78,13 +123,15 @@ export default function AiChatPanel() {
       setError(null);
       try {
         const dataUri = await readAsDataUri(file);
-        const base64 = dataUri.includes(',') ? dataUri.slice(dataUri.indexOf(',') + 1) : dataUri;
-        const res = await restCall<{ tempId: string }>(app, 'POST', 'agents.sandbox.upload', {
-          body: { roomId, fileName: file.name, mimeType: file.type || 'application/octet-stream', base64 },
-          timeoutMs: SANDBOX_TIMEOUT_MS,
+        const res: any = await app.uploadFile({
+          channelId: roomId,
+          fileName: file.name,
+          base64Data: dataUri,
+          mimeType: file.type || 'application/octet-stream',
         });
-        if (!res.tempId) throw new Error('No tempId returned.');
-        setAttachment({ tempId: res.tempId, name: file.name });
+        const fileId = res?.file?._id || res?.file?.id;
+        if (!fileId) throw new Error('Upload returned no file id.');
+        setAttachment({ fileId, name: file.name });
       } catch (err: any) {
         setError(err?.message || 'Attach failed.');
       } finally {
@@ -95,60 +142,61 @@ export default function AiChatPanel() {
     [app, roomId],
   );
 
+  const pollSession = useCallback(
+    async (sessionId: string) => {
+      for (let i = 0; i < POLL_MAX_TRIES; i++) {
+        await delay(POLL_INTERVAL_MS);
+        const res = await restCall<{ messages: ServerMessage[] }>(app, 'GET', 'ai-messages.list', {
+          query: { sessionId, count: 200 },
+        });
+        const list = Array.isArray(res.messages) ? res.messages : [];
+        setMessages(mapMessages(list));
+        const lastAi = [...list].reverse().find((m) => m.type === 'ai');
+        if (lastAi && AI_TERMINAL.has(lastAi.status || '')) return;
+      }
+    },
+    [app],
+  );
+
   const send = useCallback(async () => {
-    const prompt = input.trim();
-    if ((!prompt && !attachment) || !roomId || busy) return;
+    const content = input.trim();
+    if ((!content && !attachment) || !roomId || busy) return;
     setInput('');
     setError(null);
     const sentAttachment = attachment;
     setAttachment(null);
-    // Add the user message + an empty streaming assistant placeholder to fill in live.
     setMessages((m) => [
       ...m,
-      { role: 'user', text: prompt || '(document)', fileName: sentAttachment?.name },
-      { role: 'assistant', text: '', json: [], streaming: true },
+      { id: `tmp-user-${Date.now()}`, role: 'user', text: content || `📎 ${sentAttachment?.name || 'file'}` },
+      { id: `tmp-ai-${Date.now()}`, role: 'assistant', text: '', streaming: true },
     ]);
     setBusy(true);
     try {
-      // 1. Enqueue — attach the uploaded document via fileIds when present.
-      const started = await restCall<{ attemptId: string }>(app, 'POST', 'agents.sandbox.generate-async', {
+      const sent = await restCall<{ aiMessage?: { _id: string }; sessionId: string }>(app, 'POST', 'ai-messages.send', {
         body: {
+          entityType: 'room-chat',
+          entityId: roomId,
           roomId,
-          prompt: prompt || 'Summarise the attached document.',
-          ...(sentAttachment && { fileIds: [sentAttachment.tempId] }),
+          flowChatId: roomId,
+          content: content || 'Summarise the attached file.',
+          ...(sentAttachment && { fileIds: [sentAttachment.fileId] }),
+          ...(sessionIdRef.current && { sessionId: sessionIdRef.current }),
         },
-        timeoutMs: SANDBOX_TIMEOUT_MS,
+        timeoutMs: UPLOAD_TIMEOUT_MS,
       });
-      const attemptId = started.attemptId;
-      if (!attemptId) throw new Error('No attemptId returned.');
-
-      // 2. Poll with partial=1 until terminal, streaming blocks into the placeholder.
-      let terminal = false;
-      for (let i = 0; i < POLL_MAX_TRIES; i++) {
-        await delay(POLL_INTERVAL_MS);
-        const res = await restCall<{ status: string; text?: string; json?: any[] }>(app, 'GET', 'agents.sandbox.attempt-status', {
-          query: { roomId, attemptId, partial: '1' },
-        });
-        const json = Array.isArray(res.json) ? res.json : undefined;
-        const running = res.status === 'running';
-        setMessages((m) => patchStreamingMessage(m, { text: res.text || '', json, streaming: running }));
-        if (!running) {
-          terminal = true;
-          // On a terminal status with no blocks/text, surface the status.
-          if (!res.text && !(json && flattenAgentBlocks(json).length)) {
-            setMessages((m) => patchStreamingMessage(m, { text: `(no response — status: ${res.status})` }));
-          }
-          break;
-        }
+      sessionIdRef.current = sent.sessionId;
+      const aiMessageId = sent.aiMessage?._id;
+      if (aiMessageId) {
+        await restCall(app, 'POST', 'ai-messages.startGeneration', { body: { messageId: aiMessageId } });
       }
-      if (!terminal) setMessages((m) => patchStreamingMessage(m, { text: '(timed out waiting for the agent)', streaming: false }));
+      await pollSession(sent.sessionId);
     } catch (err: any) {
-      setError(err?.message || 'Generation failed.');
-      setMessages((m) => patchStreamingMessage(m, { streaming: false }));
+      setError(err?.message || 'Failed to send message.');
+      setMessages((m) => m.filter((x) => !x.id.startsWith('tmp-')));
     } finally {
       setBusy(false);
     }
-  }, [app, roomId, input, attachment, busy]);
+  }, [app, roomId, input, attachment, busy, pollSession]);
 
   function onKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -163,22 +211,13 @@ export default function AiChatPanel() {
 
       <div className="chat-log" ref={scrollRef}>
         {messages.length === 0 && !busy && (
-          <p className="empty-text">Ask the Sandbox agent anything, or attach a document to ground the answer.</p>
+          <p className="empty-text">Start a conversation — messages are saved to this room's AI Chat session.</p>
         )}
-        {messages.map((m, i) => {
-          const hasBlocks = m.role === 'assistant' && m.json && flattenAgentBlocks(m.json).length > 0;
-          return (
-            <div key={i} className={`chat-msg chat-${m.role}`}>
-              <div className="chat-bubble">
-                {m.fileName && <div className="chat-file-tag">📎 {m.fileName}</div>}
-                {m.role !== 'assistant' && m.text}
-                {m.role === 'assistant' && hasBlocks && <AgentBlocks json={m.json} streaming={m.streaming} />}
-                {m.role === 'assistant' && !hasBlocks && m.text && <MarkdownBlocks text={m.text} />}
-                {m.role === 'assistant' && !hasBlocks && !m.text && m.streaming && <span className="chat-thinking">Thinking…</span>}
-              </div>
-            </div>
-          );
-        })}
+        {messages.map((m) => (
+          <div key={m.id} className={`chat-msg chat-${m.role}`}>
+            <div className="chat-bubble">{m.role === 'assistant' ? <AssistantBlocks m={m} /> : m.text}</div>
+          </div>
+        ))}
       </div>
 
       {error && <div className="error-message">{error}</div>}
@@ -193,18 +232,13 @@ export default function AiChatPanel() {
       )}
 
       <div className="chat-input-row">
-        <input
-          ref={fileRef}
-          type="file"
-          style={{ display: 'none' }}
-          onChange={(e) => onPickFile(e.target.files?.[0] || null)}
-        />
+        <input ref={fileRef} type="file" style={{ display: 'none' }} onChange={(e) => onPickFile(e.target.files?.[0] || null)} />
         <button
           type="button"
           className="chat-attach-btn"
           onClick={() => fileRef.current?.click()}
           disabled={busy || uploading}
-          title="Attach document"
+          title="Attach file"
         >
           {uploading ? '…' : '📎'}
         </button>

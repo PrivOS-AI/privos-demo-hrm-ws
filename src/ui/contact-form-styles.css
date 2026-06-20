@@ -230,6 +230,17 @@ select:focus {
   font-style: italic;
 }
 
+/* Blinking caret shown while the AI reply is still streaming into the session */
+.chat-streaming-caret {
+  display: inline-block;
+  margin-left: 1px;
+  color: var(--accent);
+  animation: chat-caret-blink 1s steps(2, start) infinite;
+}
+@keyframes chat-caret-blink {
+  to { visibility: hidden; }
+}
+
 .chat-input-row {
   display: flex;
   flex-wrap: wrap;
@@ -794,7 +805,75 @@ textarea:focus {
   padding: 0;
 }
 
-/* Live, typed agent blocks (agents.sandbox.attempt-status partial json stream) */
+/* AI Chat History panel (sandbox:ai-chat — ai-messages.sessions / .list) */
+.history-container { max-width: 860px; }
+.history-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+.history-layout {
+  display: flex;
+  gap: 12px;
+  align-items: stretch;
+}
+.history-sessions {
+  flex: 0 0 240px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 60vh;
+  overflow-y: auto;
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  padding: 8px;
+  background: var(--bg-card);
+}
+.history-session {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  text-align: left;
+  padding: 8px 10px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+}
+.history-session:hover { background: var(--bg-hover); }
+.history-session-active { border-color: var(--accent); background: var(--bg-hover); }
+.history-session-title { font-size: 0.9rem; font-weight: 500; }
+.history-session-meta {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+.history-live {
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--rcx-color-status-online, #2de0a5);
+  color: #06281d;
+  font-weight: 600;
+}
+.history-messages {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 200px;
+  max-height: 60vh;
+  overflow-y: auto;
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  padding: 10px;
+  background: var(--bg-card);
+}
+
+/* Structured response blocks — tool-call cards in the native AI Chat (ai-messages toolUses) */
 .agent-blocks {
   display: flex;
   flex-direction: column;
