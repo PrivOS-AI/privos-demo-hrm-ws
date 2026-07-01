@@ -7,10 +7,12 @@ import AiChatPanel from './ai-chat-panel';
 import AiHistoryPanel from './ai-history-panel';
 import SkillsPanel from './skills-panel';
 import SandboxConnectPanel from './sandbox-connect-panel';
+import WhoamiPanel from './whoami-panel';
 
-type Tab = 'records' | 'files' | 'chat' | 'history' | 'skills' | 'sandbox';
+type Tab = 'identity' | 'records' | 'files' | 'chat' | 'history' | 'skills' | 'sandbox';
 
 const TABS: { id: Tab; label: string }[] = [
+  { id: 'identity', label: 'Identity' },
   { id: 'records', label: 'Records' },
   { id: 'files', label: 'Files' },
   { id: 'chat', label: 'AI Chat' },
@@ -21,7 +23,7 @@ const TABS: { id: Tab; label: string }[] = [
 
 function ThemedApp() {
   const { theme } = usePrivosContext();
-  const [tab, setTab] = useState<Tab>('records');
+  const [tab, setTab] = useState<Tab>('identity');
 
   return (
     <ThemeProvider hostTheme={theme}>
@@ -41,6 +43,7 @@ function ThemedApp() {
         <ThemeToggle />
       </div>
 
+      {tab === 'identity' && <WhoamiPanel />}
       {tab === 'records' && <HRManagementDashboard />}
       {tab === 'files' && <FileUploadPanel />}
       {tab === 'chat' && <AiChatPanel />}

@@ -8,8 +8,12 @@ import fs from 'fs';
 import path from 'path';
 
 import _pkg from '../package.json';
+import { verifyPrivosUser } from './verify-privos-user';
 const pkg = _pkg as Record<string, any>;
 const TOOL_NAME = 'hr_management_dashboard';
+// Pure data (no UI) tool: verifies the hub-signed user token and returns the
+// backend-validated identity so the frontend can prove who the requester is.
+const WHOAMI_TOOL = 'hr_whoami';
 const UI_RESOURCE_URI = 'ui://demo-hr-management/form.html';
 
 /** Read icon as data URI from package.json icon path */
@@ -44,7 +48,7 @@ export function invalidateUiCache(): void {
 }
 
 /** Handle an incoming MCP JSON-RPC request and return the result */
-export function handleMcpMessage(method: string, _id: number, params: any): any {
+export async function handleMcpMessage(method: string, _id: number, params: any): Promise<any> {
 	switch (method) {
 		case 'initialize':
 			return {
@@ -85,10 +89,29 @@ export function handleMcpMessage(method: string, _id: number, params: any): any 
 							ui: { resourceUri: UI_RESOURCE_URI },
 						},
 					},
+					{
+						name: WHOAMI_TOOL,
+						title: 'Who am I (verified)',
+						description:
+							'Verify the hub-signed user token and return the backend-validated identity (username + userId) of the requester.',
+						inputSchema: {
+							type: 'object',
+							properties: {
+								userToken: {
+									type: 'string',
+									description: 'The hub-issued RS256 user identity token (from usePrivosUserToken on the frontend).',
+								},
+							},
+							required: ['userToken'],
+						},
+					},
 				],
 			};
 
 		case 'tools/call':
+			if (params?.name === WHOAMI_TOOL) {
+				return handleWhoami(params?.arguments || {});
+			}
 			if (params?.name !== TOOL_NAME) {
 				throw new Error(`Unknown tool: ${params?.name || '<missing>'}`);
 			}
@@ -118,6 +141,38 @@ export function handleMcpMessage(method: string, _id: number, params: any): any 
 
 		default:
 			throw new Error(`Unknown method: ${method}`);
+	}
+}
+
+/**
+ * Backend handler for the `hr_whoami` tool.
+ *
+ * The frontend forwards the hub-signed user token; here we VERIFY it against the
+ * hub JWKS (asymmetric — this app can never forge one) and return the identity the
+ * hub vouches for. The result is wrapped as MCP `content[0].text` JSON so the
+ * frontend `usePrivosTool` hook can parse it directly.
+ */
+async function handleWhoami(args: Record<string, any>): Promise<any> {
+	const wrap = (obj: Record<string, any>) => ({ content: [{ type: 'text', text: JSON.stringify(obj) }] });
+	try {
+		// The token `aud` is the hub-assigned appId (e.g. "relay-..."), which a relay
+		// backend does not inherently know. Signature + expiry are always enforced;
+		// audience is checked only when the operator pins it via PRIVOS_APP_ID.
+		const expectedAppId = process.env.PRIVOS_APP_ID || undefined;
+		const user = await verifyPrivosUser(args?.userToken, expectedAppId ? { expectedAppId } : undefined);
+		return wrap({
+			verified: true,
+			username: user.username,
+			userId: user.userId,
+			appId: user.appId,
+			roomId: user.roomId,
+			expiresAt: user.expiresAt,
+			message: `Backend verified this request came from ${user.username} (${user.userId}).`,
+		});
+	} catch (err: any) {
+		// Verification failure is a normal, expected outcome (missing/expired/forged token) —
+		// return it as data so the frontend can show a clear "not verified" state.
+		return wrap({ verified: false, error: err?.message || 'Verification failed' });
 	}
 }
 
