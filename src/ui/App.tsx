@@ -8,11 +8,13 @@ import AiHistoryPanel from './ai-history-panel';
 import SkillsPanel from './skills-panel';
 import SandboxConnectPanel from './sandbox-connect-panel';
 import WhoamiPanel from './whoami-panel';
+import InfoPanel from './info-panel';
 
-type Tab = 'identity' | 'records' | 'files' | 'chat' | 'history' | 'skills' | 'sandbox';
+type Tab = 'identity' | 'info' | 'records' | 'files' | 'chat' | 'history' | 'skills' | 'sandbox';
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'identity', label: 'Identity' },
+  { id: 'info', label: 'Info' },
   { id: 'records', label: 'Records' },
   { id: 'files', label: 'Files' },
   { id: 'chat', label: 'AI Chat' },
@@ -44,6 +46,7 @@ function ThemedApp() {
       </div>
 
       {tab === 'identity' && <WhoamiPanel />}
+      {tab === 'info' && <InfoPanel />}
       {tab === 'records' && <HRManagementDashboard />}
       {tab === 'files' && <FileUploadPanel />}
       {tab === 'chat' && <AiChatPanel />}
