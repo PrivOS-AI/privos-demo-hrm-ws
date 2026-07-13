@@ -323,6 +323,16 @@ select:focus {
   cursor: not-allowed;
 }
 
+/* Stop button — replaces Send while a reply is generating. Red to signal an
+   interrupting action; falls back to the shared disabled style above. */
+.chat-stop-btn:not(:disabled) {
+  background: var(--danger, #d64545);
+}
+
+.chat-stop-btn:not(:disabled):hover {
+  background: var(--danger-hover, #b83636);
+}
+
 .success-message {
   background: var(--success-bg);
   color: var(--success-text);

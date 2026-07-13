@@ -10,6 +10,7 @@
  *      (creates the session on first send; stages the worker job)            [sandbox:ai-chat:write]
  *   2. POST ai-messages.startGeneration { messageId: aiMessage._id }         [sandbox:ai-chat:write]
  *   3. GET  ai-messages.list?sessionId  (poll) -> messages w/ live content   [sandbox:ai-chat]
+ *   4. POST ai-messages.cancel { messageId } — Stop button; aborts the run   [sandbox:ai-chat:write]
  *
  * Each AI message carries `content` (streamed text) plus `toolUses` — the
  * structured response blocks — which we render as cards + a JSON view.
@@ -111,6 +112,15 @@ export default function AiChatPanel() {
   const sessionIdRef = useRef<string | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const fileRef = useRef<HTMLInputElement | null>(null);
+  // The in-flight assistant message id (target of ai-messages.cancel), and a
+  // flag the poll loop checks so a Stop breaks out immediately instead of
+  // waiting for the next terminal-status poll.
+  const currentAiIdRef = useRef<string | null>(null);
+  const stoppedRef = useRef(false);
+  const [stopping, setStopping] = useState(false);
+  // Mirror of currentAiIdRef existence, purely to drive the Stop button's
+  // enabled state (a ref change doesn't re-render).
+  const [hasInflight, setHasInflight] = useState(false);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
@@ -146,6 +156,7 @@ export default function AiChatPanel() {
     async (sessionId: string) => {
       for (let i = 0; i < POLL_MAX_TRIES; i++) {
         await delay(POLL_INTERVAL_MS);
+        if (stoppedRef.current) return; // Stop pressed — quit polling.
         const res = await restCall<{ messages: ServerMessage[] }>(app, 'GET', 'ai-messages.list', {
           query: { sessionId, count: 200 },
         });
@@ -171,6 +182,9 @@ export default function AiChatPanel() {
       { id: `tmp-ai-${Date.now()}`, role: 'assistant', text: '', streaming: true },
     ]);
     setBusy(true);
+    stoppedRef.current = false;
+    currentAiIdRef.current = null;
+    setHasInflight(false);
     try {
       const sent = await restCall<{ aiMessage?: { _id: string }; sessionId: string }>(app, 'POST', 'ai-messages.send', {
         body: {
@@ -186,6 +200,8 @@ export default function AiChatPanel() {
       });
       sessionIdRef.current = sent.sessionId;
       const aiMessageId = sent.aiMessage?._id;
+      currentAiIdRef.current = aiMessageId || null; // Stop targets this message.
+      setHasInflight(!!aiMessageId);
       if (aiMessageId) {
         await restCall(app, 'POST', 'ai-messages.startGeneration', { body: { messageId: aiMessageId } });
       }
@@ -195,8 +211,33 @@ export default function AiChatPanel() {
       setMessages((m) => m.filter((x) => !x.id.startsWith('tmp-')));
     } finally {
       setBusy(false);
+      currentAiIdRef.current = null;
+      setHasInflight(false);
     }
   }, [app, roomId, input, attachment, busy, pollSession]);
+
+  /** Stop the in-flight run: abort on the server, break the poll loop, and
+   *  refresh the list once so the cancelled reply (with partial text) shows. */
+  const stop = useCallback(async () => {
+    const messageId = currentAiIdRef.current;
+    const sessionId = sessionIdRef.current;
+    if (!messageId || stopping) return;
+    setStopping(true);
+    stoppedRef.current = true; // halt pollSession's next iteration
+    try {
+      await restCall(app, 'POST', 'ai-messages.cancel', { body: { messageId } });
+      if (sessionId) {
+        const res = await restCall<{ messages: ServerMessage[] }>(app, 'GET', 'ai-messages.list', {
+          query: { sessionId, count: 200 },
+        });
+        if (Array.isArray(res.messages)) setMessages(mapMessages(res.messages));
+      }
+    } catch (err: any) {
+      setError(err?.message || 'Failed to stop the response.');
+    } finally {
+      setStopping(false);
+    }
+  }, [app, stopping]);
 
   function onKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -251,9 +292,15 @@ export default function AiChatPanel() {
           onKeyDown={onKeyDown}
           disabled={busy}
         />
-        <button type="button" className="btn-submit" onClick={send} disabled={busy || (!input.trim() && !attachment)}>
-          Send
-        </button>
+        {busy ? (
+          <button type="button" className="btn-submit chat-stop-btn" onClick={stop} disabled={stopping || !hasInflight}>
+            {stopping ? 'Stopping…' : 'Stop'}
+          </button>
+        ) : (
+          <button type="button" className="btn-submit" onClick={send} disabled={!input.trim() && !attachment}>
+            Send
+          </button>
+        )}
       </div>
     </div>
   );
