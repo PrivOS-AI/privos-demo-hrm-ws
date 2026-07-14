@@ -1024,3 +1024,47 @@ textarea:focus {
   font-size: 0.82rem;
   color: var(--text);
 }
+
+/* AI Poem panel — generated poem lands in editable Title + Poem fields. */
+.poem-result {
+  margin-top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.poem-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.poem-field-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.poem-title-input,
+.poem-content-input {
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-input);
+  color: var(--text);
+  font-family: inherit;
+  box-sizing: border-box;
+}
+
+.poem-title-input {
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.poem-content-input {
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 1rem;
+  line-height: 1.7;
+  resize: vertical;
+  min-height: 200px;
+}
