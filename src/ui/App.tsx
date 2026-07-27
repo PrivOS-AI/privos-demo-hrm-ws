@@ -10,13 +10,15 @@ import SkillsPanel from './skills-panel';
 import SandboxConnectPanel from './sandbox-connect-panel';
 import WhoamiPanel from './whoami-panel';
 import InfoPanel from './info-panel';
+import LicensePanel from './license-panel';
 
-type Tab = 'identity' | 'info' | 'records' | 'files' | 'chat' | 'poem' | 'history' | 'skills' | 'sandbox';
+type Tab = 'identity' | 'info' | 'records' | 'license' | 'files' | 'chat' | 'poem' | 'history' | 'skills' | 'sandbox';
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'identity', label: 'Identity' },
   { id: 'info', label: 'Info' },
   { id: 'records', label: 'Records' },
+  { id: 'license', label: 'License' },
   { id: 'files', label: 'Files' },
   { id: 'chat', label: 'AI Chat' },
   { id: 'poem', label: 'AI Poem' },
@@ -50,6 +52,7 @@ function ThemedApp() {
       {tab === 'identity' && <WhoamiPanel />}
       {tab === 'info' && <InfoPanel />}
       {tab === 'records' && <HRManagementDashboard />}
+      {tab === 'license' && <LicensePanel />}
       {tab === 'files' && <FileUploadPanel />}
       {tab === 'chat' && <AiChatPanel />}
       {tab === 'poem' && <AiPoemPanel />}

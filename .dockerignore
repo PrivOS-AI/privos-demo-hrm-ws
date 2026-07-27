@@ -1,0 +1,15 @@
+.git
+.github
+.env
+.env.*
+!.env.example
+.agents
+.gemini
+.recyclebin
+dist
+dist-source
+node_modules
+*.pem
+*.key
+*.tsbuildinfo
+coverage

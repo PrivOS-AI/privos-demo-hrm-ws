@@ -1,0 +1,33 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run preflight
+      - run: npm run package
+      - run: docker build -t privos-demo-hrm-ws:test .
+      - name: Hardened container smoke test
+        run: |
+          docker run -d --name reference-app --read-only --cap-drop ALL \
+            --security-opt no-new-privileges --pids-limit 100 --tmpfs /tmp \
+            -e PORT=3000 -p 127.0.0.1:3000:3000 privos-demo-hrm-ws:test
+          trap 'docker rm -f reference-app' EXIT
+          for attempt in $(seq 1 30); do
+            curl --fail http://127.0.0.1:3000/.well-known/mcp/manifest.json && break
+            sleep 1
+          done
+          curl --fail --json '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}' \
+            http://127.0.0.1:3000/mcp

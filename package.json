@@ -2,8 +2,8 @@
   "name": "ai.privos.demo-hr-management-ws",
   "version": "1.0.0",
   "private": false,
-  "description": "HR management demo (relay WebSocket) -- connects to Privos via WS, no public URL needed",
-  "title": "Demo HR Management (Relay)",
+  "description": "Reference PrivOS MCP app demonstrating direct and relay transports, scoped workspace APIs, and license tiers",
+  "title": "Demo HR Management",
   "icon": "/public/icon.svg",
   "scopes": ["basic:information", "lists:read", "lists:write", "files:read", "files:write", "sandbox:skills:use", "sandbox:botkey:push", "sandbox:wake", "sandbox:ai-chat", "sandbox:ai-chat:write"],
   "homepage": "https://privos.ai",
@@ -12,34 +12,61 @@
     "email": "dev@privos.ai",
     "url": "https://privos.ai"
   },
-  "license": "MIT",
+  "license": {
+    "enforcement": "app",
+    "tiers": [
+      {
+        "id": "free",
+        "features": [],
+        "limits": {
+          "records": 50
+        }
+      },
+      {
+        "id": "pro",
+        "features": ["bulk-export"],
+        "limits": {
+          "records": 5000
+        }
+      }
+    ]
+  },
+  "dockerfilePath": "Dockerfile",
   "keywords": ["hr", "management", "mcp", "demo", "privos", "relay", "websocket"],
   "repository": {
     "type": "git",
     "url": "https://github.com/PrivOS-AI/privos-demo-hrm-ws"
   },
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=22.0.0"
   },
   "scripts": {
-    "build": "vite build",
-    "dev": "PRIVOS_DEV_UI=1 tsx src/server.ts",
-    "start": "vite build && tsx src/server.ts"
+    "build": "vite build && tsx scripts/generate-manifest.ts",
+    "dev": "PRIVOS_TRANSPORT=relay PRIVOS_DEV_UI=1 tsx src/server.ts",
+    "start": "tsx src/server.ts",
+    "start:relay": "PRIVOS_TRANSPORT=relay tsx src/server.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "preflight": "tsx scripts/preflight.ts",
+    "package": "bash scripts/package-source.sh",
+    "docker:build": "docker build -t privos-demo-hrm-ws:local .",
+    "docker:run": "docker run --rm --read-only --cap-drop ALL --security-opt no-new-privileges --pids-limit 100 --tmpfs /tmp -e PORT=3000 privos-demo-hrm-ws:local"
   },
   "dependencies": {
     "dotenv": "^17.3.1",
-    "ws": "^8.0.0"
+    "tsx": "^4.0.0",
+    "ws": "^8.21.0"
   },
   "devDependencies": {
-    "@privos/app-react": "file:../privos-app-packages/app-react",
+    "@privos/app-react": "file:vendor/app-react",
     "@types/react": "^18.0.0",
     "@types/react-dom": "^18.0.0",
     "@types/ws": "^8.0.0",
     "@vitejs/plugin-react": "^4.0.0",
     "react": "^18.0.0",
     "react-dom": "^18.0.0",
-    "tsx": "^4.0.0",
     "typescript": "^5.0.0",
-    "vite": "^5.0.0"
+    "vite": "^5.0.0",
+    "vitest": "^2.1.9"
   }
 }

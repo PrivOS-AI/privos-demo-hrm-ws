@@ -1,4 +1,16 @@
 node_modules/
 dist/
 .env
+.env.*
+!.env.example
+.env.bak*
+.env.tmp
+.env.*.bak*
+.recyclebin/
+.agents
+.gemini
+AGENTS.md
+GEMINI.md
+pnpm-lock.yaml
+dist-source/
 *.tsbuildinfo

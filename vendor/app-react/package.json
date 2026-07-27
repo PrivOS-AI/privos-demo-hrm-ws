@@ -1,0 +1,11 @@
+{
+  "name": "@privos/app-react",
+  "version": "0.1.0-vendored",
+  "description": "Vendored PrivOS MCP App React bridge for self-contained marketplace builds",
+  "main": "src/index.tsx",
+  "types": "src/index.tsx",
+  "peerDependencies": {
+    "react": ">=18.0.0"
+  },
+  "license": "MIT"
+}

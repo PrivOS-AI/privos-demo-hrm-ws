@@ -1,155 +1,145 @@
-# privos-demo-hrm-ws
+# PrivOS reference MCP app
 
-HR management demo app for Privos Chat — **relay WebSocket** version.
+This repository is the copyable, marketplace-ready example of a PrivOS MCP app. It shows one
+transport-neutral JSON-RPC handler set, a React MCP App UI, minimum justified workspace scopes,
+free/Pro license behavior, safe source packaging, local preflight, and a hardened container build.
 
-Unlike the [direct version](https://github.com/PrivOS-AI/privos-demo-hrm) which requires a public URL, this app connects **outbound** to Privos via WebSocket. No HTTP server, no public URL, no port forwarding.
+An installed app runs as a cluster-hosted container inside the buyer's workspace. The hub mediates
+MCP calls and workspace REST access, and the buyer consents to the scopes in [SCOPES.md](SCOPES.md).
 
-## How it works
+## 1. Clone and run locally
 
-```
-This app (behind NAT)  --WSS-->  Privos Server
-                                    |
-                       MCP JSON-RPC over WebSocket
-                       (initialize, tools/list, tools/call, resources/read)
-                                    |
-                       UI HTML delivered inline (fully self-contained)
-```
-
-1. On first run, app pairs with Privos via a one-time URL (credentials saved to `.env`)
-2. On subsequent runs, app authenticates via OAuth and connects WS
-3. Privos discovers tools, app goes "online"
-4. UI is built by Vite, inlined in `resources/read` — no external URL references
-
-## Setup
+Requirements: Node.js 22+, npm, Git and Docker.
 
 ```bash
-# Clone the SDK (needed for @privos/app-react)
-git clone https://github.com/PrivOS-AI/privos-app-packages ../privos-app-packages
-
-npm install
-npm start
-```
-
-On first run (no `.env` credentials):
-```
-No Privos credentials found. Starting pairing flow...
-Get a pairing URL from: Privos Admin → Apps → Register Relay App
-
-Enter the Privos relay pairing URL: wss://privos.example.com/api/v1/mcp-apps.relay?pair=abc...
-
-[Relay] Paired! Credentials saved to .env
-[Relay] Connected to Privos
-```
-
-That's it. Next `npm start` just connects — no prompts.
-
-## Dev mode vs production mode
-
-The app serves its UI two different ways. Pick the one you need:
-
-| | Production (`npm start`) | Dev (`npm run dev`) |
-|--------|--------------------------|---------------------|
-| UI delivery | Vite build inlined in `resources/read` | Loaded live from the Vite dev server |
-| HMR (hot reload) | No | **Yes** |
-| Breakpoints | Minified, hard | **Full TypeScript breakpoints** |
-| Refresh after edit | rebuild + manual refresh | automatic |
-
-### Production — `npm start`
-
-```bash
-npm start
-```
-
-Runs `vite build` then connects the relay. UI is bundled and inlined into the MCP
-response — self-contained, nothing to reach over the network. Use this for demos
-and deployment.
-
-### Dev — `npm run dev`
-
-```bash
+git clone https://github.com/PrivOS-AI/privos-demo-hrm-ws
+cd privos-demo-hrm-ws
+npm ci
+cp .env.example .env
 npm run dev
 ```
 
-Starts a live Vite dev server and points the hub iframe at it, so you get HMR and
-real breakpoints while editing `src/ui/`. The relay WebSocket still carries the
-MCP protocol and `app.rest()` calls — only the **UI assets** come from Vite.
+Development uses `PRIVOS_TRANSPORT=relay`: the app dials the hub over WebSocket, so no public app
+server is required. On first run, obtain a pairing URL from PrivOS Admin → Apps → Register Relay App
+and paste it into the prompt. Credentials are stored only in ignored `.env`.
 
-Choose how the hub iframe reaches the Vite server with `DEV_TUNNEL` (in `.env`):
+The Vite UI defaults to `http://localhost:5179`. Set `DEV_TUNNEL=cloudflared` only when the browser
+displaying the hub is on another machine.
 
-```bash
-# Same machine (default): you open the hub in a browser on the SAME computer
-# that runs `npm run dev`. The iframe loads http://localhost:5179 directly —
-# no tunnel, no extra tools.
-DEV_TUNNEL=localhost      # default, can be omitted
+## 2. Run the marketplace transport
 
-# Different machine: the hub is opened on another computer/device. A public
-# tunnel is needed so that browser can reach your Vite server.
-DEV_TUNNEL=cloudflared    # spins up a cloudflared quick tunnel (binary required)
-```
-
-Optional `.env` overrides:
+The marketplace deploys `direct` transport, which is the default:
 
 ```bash
-VITE_PORT=5179            # local Vite port (default 5179)
-PUBLIC_URL=https://...    # reuse your own tunnel instead of spawning cloudflared
-                          # (only used when DEV_TUNNEL=cloudflared)
+npm run build
+PORT=3000 npm start
+curl http://127.0.0.1:3000/.well-known/mcp/manifest.json
+curl --json '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}' \
+  http://127.0.0.1:3000/mcp
 ```
 
-**Setting breakpoints:** open the hub in Chrome → DevTools → Sources → find the
-iframe origin (`localhost:5179` or your tunnel host) → set breakpoints in the
-`.tsx` source directly (Vite serves source maps).
+Both transports call the same handlers in `src/mcp-message-handlers.ts`. A relay server has no
+per-request user identity; use direct mode and verify the hub-signed user token when backend logic
+must identify the caller.
 
-## AI Chat — streaming blocks
+## 3. Build the exact marketplace container
 
-The **AI Chat** tab talks to the PrivOS Sandbox agent and renders its reply
-**block-by-block, typed out, as the agent generates** — not as one final dump.
-
-Flow (all as the current user, scope `sandbox:generate`):
-
-1. `POST agents.sandbox.generate-async { roomId, prompt, fileIds? }` → `{ attemptId }` (returns immediately; the bridge times out long requests at ~10s, so we enqueue + poll).
-2. `GET agents.sandbox.attempt-status?roomId&attemptId&partial=1` every ~1.2s. The
-   `partial=1` flag makes a still-`running` poll return the `text`/`json` accumulated so
-   far, so blocks stream in instead of appearing only at the end.
-3. On a terminal status (`completed`/`failed`/`cancelled`) the final `text`/`json` is returned.
-
-`json` is the agent's structured response events (assistant text, `tool_use`, `tool_result`,
-`result`). `agent-blocks.tsx` flattens those into ordered display blocks — scoped to the
-current turn (replayed history skipped) — and renders each:
-
-- **text / result** → typed out like a typewriter (reveal-only, so growth keeps typing).
-- **tool call** → a labeled card with the tool name + input.
-- **tool result** → a collapsible card.
-
-Optional: attach a document first via `POST agents.sandbox.upload` → `{ tempId }`, then pass
-it in `generate-async`'s `fileIds` to ground the answer.
-
-> Note: granularity is **event-level** (per assistant message / tool call), not token-level
-> — token deltas are hub-internal and not on the REST surface.
-
-## Differences from direct version
-
-| Aspect | Direct (privos-demo-hrm) | Relay (this repo) |
-|--------|-------------------------|-------------------|
-| Connection | Privos → App via HTTP | App → Privos via WS |
-| Public URL | Required | Not needed |
-| HTTP server | Express (manifest, /mcp, static) | None |
-| UI delivery | Browser loads from app URL | Inlined in resources/read |
-| Setup | Manual credential copy | One-time pairing URL |
-| UI code | Identical | Identical |
-
-## Project structure
-
+```bash
+npm run docker:build
+npm run docker:run
 ```
-src/
-├── server.ts                # Entry: pairing flow + relay connect
-├── relay-client.ts          # WS client: pairing, OAuth, auto-reconnect
-├── mcp-message-handlers.ts  # MCP handlers; inline UI (prod) or Vite dev URL (dev)
-├── dev-server.ts            # Dev mode: Vite dev server + localhost/cloudflared transport
-└── ui/                      # React UI (identical to direct version)
-    ├── App.tsx
-    ├── main.tsx
-    ├── ai-chat-panel.tsx     # AI Chat: enqueue + poll attempt-status?partial=1, stream blocks
-    ├── agent-blocks.tsx      # Flatten attempt json events → ordered, typed live blocks
-    ├── markdown-blocks.tsx   # Minimal markdown renderer for assistant text
-    └── ...
+
+The multi-stage image builds without sibling repositories, runs as the unprivileged `node` user, and
+works with a read-only root filesystem, all Linux capabilities dropped, no-new-privileges and a
+100-process limit. The platform injects `PORT`, `PRIVOS_TRANSPORT=direct`,
+`PRIVOS_APP_LICENSE`, and `PRIVOS_WORKSPACE_ID`.
+
+## 4. Choose and justify scopes
+
+Start with no scopes, add one only when a real call needs it, and write the reviewer-facing reason at
+the same time. [SCOPES.md](SCOPES.md) maps every requested scope to an actual panel and API call.
+Preflight fails if a declared scope lacks both documentation and an annotated call site.
+
+## 5. Define pricing and license behavior
+
+`package.json` is the single metadata source. Its `license.tiers` declares:
+
+- Free: 50 records.
+- Pro: 5,000 records plus `bulk-export`.
+
+The server guards the tool with `license.assert('bulk-export')` and
+`assertWithin('records', count)`. The License UI hides the Pro action on Free. A lapsed Pro license
+degrades to Free without deleting or mutating records. Until `@privos/app-license` is published,
+`src/license.ts` is a compatibility shim with the intended API surface.
+
+For local testing:
+
+```bash
+PRIVOS_APP_LICENSE='{"tier":"pro","state":"active"}' npm start
 ```
+
+## 6. Check the submission
+
+```bash
+npm run typecheck
+npm test
+npm run preflight
+```
+
+Preflight checks the authoritative manifest, supported fields, scopes, Dockerfile, license guards,
+packaging policy, and the live manifest endpoint. Its rules are explicitly versioned as a temporary
+mirror until the portal's shared marketplace validation module is published. Failures include a
+specific fix.
+
+## 7. Package source safely
+
+Commit the exact source you intend to submit, then run:
+
+```bash
+npm run package
+```
+
+This creates `dist-source/ai.privos.demo-hr-management-ws-1.0.0.tar.gz` and a `.sha256` provenance
+file. It packages Git-tracked files, never sweeps the working directory, rejects dirty trees,
+credential-like files, build output and archives over 200 MiB. `--allow-dirty` exists for local
+inspection only.
+
+Never zip or tar the whole working directory. `.env`, backups, credentials, `node_modules`, `dist`
+and editor/agent state must not enter a submission.
+
+## 8. Submit and review
+
+Upload the archive, its checksum, listing copy, assets and `dockerfilePath: Dockerfile`. Review checks
+that the image builds from the archive, the manifest endpoint answers, requested scopes match code,
+license claims are enforced, no secrets are present, and the app behaves under hardened runtime
+flags. Typical rejection causes are sibling path dependencies, unjustified scopes, missing
+Dockerfiles, unsupported manifest keys and hidden credentials.
+
+### What happens to submitted source
+
+Marketplace behavior recorded in the authoritative marketplace plan on 2026-07-26: source is used
+only to review and build the app and is not shared with buyers. It is encrypted at rest, access is
+audited, and it is retained while a version is published so PrivOS can rebuild for base-image CVEs.
+After all versions are unpublished, the publisher can request deletion. Agent content is different:
+agents are installed into the buyer's workspace and are readable there; MCP app source remains
+confidential.
+
+This example is MIT-licensed so publishers can copy it. Marketplace apps do not have to be open
+source; publishers may choose their own license while still providing reviewable source privately.
+
+## 9. Release and update
+
+Follow [CHANGELOG.md](CHANGELOG.md) and SemVer. A marketplace listing version maps to the same
+`package.json` version. After approval the platform builds and digest-pins the image. Existing buyers
+remain on their installed digest until they opt into an update.
+
+## 10. Launch
+
+The [launch kit](launch-kit/README.md) includes listing copy, scope text, icon variants, screenshots,
+an OG image and a demo storyboard. Affiliate links may append publisher-issued SubIDs so campaign
+attribution stays separate without changing the listing identity.
+
+## Configuration
+
+See [.env.example](.env.example). No secret belongs in Git. Architecture and maintainer commands are
+summarized in [PRIVOS.md](PRIVOS.md).

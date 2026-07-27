@@ -9,11 +9,13 @@ import path from 'path';
 
 import _pkg from '../package.json';
 import { verifyPrivosUser } from './verify-privos-user';
+import { createLicenseGuard } from './license';
 const pkg = _pkg as Record<string, any>;
 const TOOL_NAME = 'hr_management_dashboard';
 // Pure data (no UI) tool: verifies the hub-signed user token and returns the
 // backend-validated identity so the frontend can prove who the requester is.
 const WHOAMI_TOOL = 'hr_whoami';
+const BULK_EXPORT_TOOL = 'hr_bulk_export';
 const UI_RESOURCE_URI = 'ui://demo-hr-management/form.html';
 
 /** Read icon as data URI from package.json icon path */
@@ -105,10 +107,27 @@ export async function handleMcpMessage(method: string, _id: number, params: any)
 							required: ['userToken'],
 						},
 					},
+					{
+						name: BULK_EXPORT_TOOL,
+						title: 'Bulk export HR records',
+						description: 'Export records in bulk. Requires the Pro tier.',
+						inputSchema: {
+							type: 'object',
+							properties: { records: { type: 'array', items: { type: 'object' } } },
+							required: ['records'],
+						},
+					},
 				],
 			};
 
 		case 'tools/call':
+			if (params?.name === BULK_EXPORT_TOOL) {
+				const records = Array.isArray(params?.arguments?.records) ? params.arguments.records : [];
+				const guard = createLicenseGuard();
+				guard.assert('bulk-export');
+				guard.assertWithin('records', records.length);
+				return { content: [{ type: 'text', text: JSON.stringify({ exported: records.length, records }) }] };
+			}
 			if (params?.name === WHOAMI_TOOL) {
 				return handleWhoami(params?.arguments || {});
 			}

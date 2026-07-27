@@ -1,0 +1,8 @@
+/.claude export-ignore
+/.agents export-ignore
+/.gemini export-ignore
+/AGENTS.md export-ignore
+/CLAUDE.md export-ignore
+/GEMINI.md export-ignore
+/dist-source export-ignore
+/pnpm-lock.yaml export-ignore

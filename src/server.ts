@@ -22,7 +22,7 @@ function getIconDataUri(): string | undefined {
 	return `data:${mime};base64,${data}`;
 }
 
-async function start() {
+async function startRelay() {
 	let privosUrl = process.env.PRIVOS_URL;
 	let clientId = process.env.CLIENT_ID;
 	let clientSecret = process.env.CLIENT_SECRET;
@@ -65,6 +65,17 @@ async function start() {
 	});
 
 	console.log('Relay app running — connected to Privos');
+}
+
+async function start() {
+	const transport = process.env.PRIVOS_TRANSPORT || 'direct';
+	if (transport === 'direct') {
+		const { startHttpServer } = await import('./http-server');
+		startHttpServer();
+		return;
+	}
+	if (transport !== 'relay') throw new Error(`Unsupported PRIVOS_TRANSPORT: ${transport}`);
+	await startRelay();
 }
 
 start().catch((err) => {
