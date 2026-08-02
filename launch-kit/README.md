@@ -1,6 +1,6 @@
 # Launch kit
 
-Release assets for listing version 1.0.0.
+Release assets for listing version 2.0.0.
 
 - `listing.md` — tagline, descriptions, category, keywords and reviewer scope copy.
 - `icon.svg`, `icon-mono.svg` — scalable color and monochrome listing icon sources.

@@ -5,7 +5,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { usePrivosApp, usePrivosContext } from '@privos/app-react';
 import ListItemsTable from './list-items-table';
-import { restCall } from './privos-rest';
+import { restCall, safeFeatureError } from './privos-rest';
 
 interface FieldDefinition {
   _id: string;
@@ -57,7 +57,9 @@ function readAsDataUri(file: File): Promise<string> {
 
 export default function HRManagementDashboard() {
   const app = usePrivosApp();
-  const { roomId } = usePrivosContext();
+  const { roomId, effectiveScopes } = usePrivosContext();
+  const canWrite = effectiveScopes?.includes('lists:write') === true;
+  const canUpload = effectiveScopes?.includes('files:write') === true;
 
   // Lists in the room — fetched via the hub REST API (GET lists.listByRoomId),
   // gated by the app's `lists:read` scope. Runs as the current user.
@@ -157,7 +159,7 @@ export default function HRManagementDashboard() {
       setShowCreateList(false);
       setNewListName('');
     } catch (err: any) {
-      setCreateListError(err?.message || 'Failed to create list.');
+      setCreateListError(safeFeatureError(err, 'Failed to create list.'));
     } finally {
       setCreatingList(false);
     }
@@ -182,7 +184,7 @@ export default function HRManagementDashboard() {
       setNewFieldType('TEXT');
       setShowAddField(false);
     } catch (err: any) {
-      setError(err?.message || 'Failed to add field.');
+      setError(safeFeatureError(err, 'Failed to add field.'));
     } finally {
       setAddingField(false);
     }
@@ -242,7 +244,7 @@ export default function HRManagementDashboard() {
       setSuccess(true);
       setRefreshKey((k) => k + 1);
     } catch (err: any) {
-      setError(err?.message || 'Failed to submit.');
+      setError(safeFeatureError(err, 'Failed to submit.'));
     } finally {
       setSubmitting(false);
     }
@@ -268,6 +270,11 @@ export default function HRManagementDashboard() {
   return (
     <div className="container">
       <h1>PrivOS Demo MCP App</h1>
+      {!canWrite && (
+        <div className="items-count">
+          Read-only mode: the optional <code>lists:write</code> permission is not granted.
+        </div>
+      )}
 
       {/* List selector + create */}
       <div className="form-group">
@@ -287,12 +294,14 @@ export default function HRManagementDashboard() {
             type="button"
             className="btn-new-list"
             onClick={() => { setShowCreateList((v) => !v); setCreateListError(null); }}
+            disabled={!canWrite}
+            title={!canWrite ? 'Optional lists:write permission not granted' : undefined}
           >
             + New List
           </button>
         </div>
 
-        {showCreateList && (
+        {canWrite && showCreateList && (
           <div className="add-field-panel">
             <div className="add-field-row">
               <input
@@ -332,10 +341,11 @@ export default function HRManagementDashboard() {
             listId={selectedListId}
             fields={fields}
             refreshKey={refreshKey}
+            readOnly={!canWrite}
           />
 
           {/* Add record toggle */}
-          {!showForm && !success && (
+          {canWrite && !showForm && !success && (
             <button type="button" className="btn-submit" onClick={() => setShowForm(true)}>
               + Add Record
             </button>
@@ -376,7 +386,7 @@ export default function HRManagementDashboard() {
               {fields.map((field) => (
                 <div className="form-group" key={field._id}>
                   <label htmlFor={`field-${field._id}`}>{field.name}</label>
-                  {renderFieldInput(field, fieldValues[field._id] ?? '', (v) => setFieldValue(field._id, v))}
+                  {renderFieldInput(field, fieldValues[field._id] ?? '', (v) => setFieldValue(field._id, v), canUpload)}
                 </div>
               ))}
 
@@ -440,6 +450,7 @@ function renderFieldInput(
   field: FieldDefinition,
   value: any,
   onChange: (v: any) => void,
+  filesEnabled = true,
 ) {
   const id = `field-${field._id}`;
 
@@ -461,6 +472,7 @@ function renderFieldInput(
     case 'FILE_MULTIPLE':
     case 'DOCUMENT':
       // Store the File object; the form uploads it on submit and saves a { _id, name } ref.
+      if (!filesEnabled) return <span className="file-size">File fields are disabled because files:write is not granted.</span>;
       return (
         <div>
           <input id={id} type="file" onChange={(e) => onChange(e.target.files?.[0] || null)} />

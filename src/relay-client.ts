@@ -1,6 +1,6 @@
 /**
  * WebSocket relay client that connects outbound to Privos.
- * Supports two flows:
+ * Development compatibility only. Supports two flows:
  *   1. Pairing: connect with ?pair=<token>, send metadata, receive credentials, save to .env
  *   2. Normal: authenticate via OAuth client_credentials, maintain persistent WS for MCP JSON-RPC
  */
@@ -15,6 +15,16 @@ interface RelayClientOptions {
 	clientId: string;
 	clientSecret: string;
 	onMessage: (method: string, id: number, params: any) => Promise<any>;
+}
+
+function assertDevelopmentRelay(): void {
+	if (
+		process.env.PRIVOS_RUNTIME_MODE !== 'development' ||
+		process.env.PRIVOS_ALLOW_LEGACY_RELAY_PAIRING !== '1' ||
+		process.env.NODE_ENV === 'production'
+	) {
+		throw new Error('Legacy relay credentials are disabled outside explicit development mode.');
+	}
 }
 
 /** Prompt user for input in terminal */
@@ -48,6 +58,7 @@ function saveToEnv(vars: Record<string, string>): void {
 export async function pairWithPrivos(appMeta: { name: string; description?: string; version?: string; icon?: string; scopes?: string[] }): Promise<{
 	privosUrl: string; clientId: string; clientSecret: string;
 }> {
+	assertDevelopmentRelay();
 	const pairUrl = await prompt('\nEnter the Privos relay pairing URL: ');
 	if (!pairUrl) throw new Error('No URL provided');
 
@@ -107,6 +118,7 @@ async function getAccessToken(privosUrl: string, clientId: string, clientSecret:
 
 /** Connect to Privos relay WebSocket with auto-reconnect */
 export async function connectRelay(opts: RelayClientOptions): Promise<WebSocket> {
+	assertDevelopmentRelay();
 	const accessToken = await getAccessToken(opts.privosUrl, opts.clientId, opts.clientSecret);
 	console.log('[Relay] OAuth token obtained');
 

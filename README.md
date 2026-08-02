@@ -1,15 +1,32 @@
 # PrivOS Demo MCP App
 
-This repository is the copyable, marketplace-ready example of a PrivOS MCP app. It shows one
-transport-neutral JSON-RPC handler set, a React MCP App UI, minimum justified workspace scopes,
-free/Pro license behavior, safe source packaging, local preflight, and a hardened container build.
+This is the reference schema-v2 PrivOS MCP app. It demonstrates exact required and optional
+permissions, safe feature degradation, secretless workload identity, authenticated private Hub
+dispatch, the iframe host bridge, license-aware behavior, and reproducible Marketplace packaging.
 
-An installed app runs as a cluster-hosted container inside the buyer's workspace. The hub mediates
-MCP calls and workspace REST access, and the buyer consents to the scopes in [SCOPES.md](SCOPES.md).
+## Runtime trust model
 
-## 1. Clone and run locally
+Managed production installations do not use a pair URL, OAuth client secret, or browser user
+token. App Cluster mounts a per-installation Unix socket. `@privos_ai/app-server` creates an
+ephemeral P-256 DPoP key in memory, obtains short-lived sender-constrained workload tokens through
+the socket, and refreshes them without writing credentials to disk or environment variables.
 
-Requirements: Node.js 22+, npm, Git and Docker.
+Hub-to-app `/mcp` requests travel through private Cluster dispatch and carry a short-lived signed
+assertion bound to the request body, installation, replica, receipt hash, and permission epoch.
+The backend actor for `hr_whoami` comes from that verified assertion. The iframe receives only
+non-secret host context and uses `app.rest()`, `app.uploadFile()`, and MCP tools through the Hub
+bridge as the current user.
+
+Production accepts these non-secret values from the platform:
+
+- `PRIVOS_HUB_ORIGIN`
+- `PRIVOS_APP_ID`
+- `PRIVOS_INSTALLATION_ID`
+- `PRIVOS_WORKLOAD_SOCKET` (normally `/run/privos/identity.sock`)
+
+## Local development
+
+Requirements: Node.js 22+, npm, Git, and Docker.
 
 ```bash
 git clone https://github.com/PrivOS-AI/privos-mcp-app-demo
@@ -19,136 +36,95 @@ cp .env.example .env
 npm run dev
 ```
 
-Development uses `PRIVOS_TRANSPORT=relay`: the app dials the hub over WebSocket, so no public app
-server is required. On first run, obtain a pairing URL from PrivOS Admin → Apps → Register Relay App
-and paste it into the prompt. Credentials are stored only in ignored `.env`.
+`npm run dev` explicitly enables the legacy relay pairing path for local development. Obtain a
+pairing URL from PrivOS Admin and paste it into the prompt. Ignored `.env` storage and OAuth client
+credentials are permitted only in this mode; the relay client refuses them when
+`NODE_ENV=production` or `PRIVOS_RUNTIME_MODE` is not `development`.
 
-The Vite UI defaults to `http://localhost:5179`. Set `DEV_TUNNEL=cloudflared` only when the browser
-displaying the hub is on another machine.
+The Vite UI defaults to `http://localhost:5179`. `DEV_TUNNEL=cloudflared` is optional when the
+browser displaying Hub is on another machine.
 
-## 2. Run the marketplace transport
+## Managed direct runtime
 
-The marketplace deploys `direct` transport, which is the default:
+The Marketplace image starts direct transport by default:
 
 ```bash
 npm run build
-PORT=3000 npm start
+PRIVOS_RUNTIME_MODE=development PORT=3000 npm start
+curl http://127.0.0.1:3000/health
+curl http://127.0.0.1:3000/ready
 curl http://127.0.0.1:3000/.well-known/mcp/manifest.json
-curl --json '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}' \
-  http://127.0.0.1:3000/mcp
 ```
 
-Both transports call the same handlers in `src/mcp-message-handlers.ts`. A relay server has no
-per-request user identity; use direct mode and verify the hub-signed user token when backend logic
-must identify the caller.
+Development compatibility reports manifest-verified readiness without a broker. In production,
+`/health` only proves the process is alive; `/ready` returns 200 only after the manifest is valid,
+workload identity is paired, and the current receipt/epoch is active. A public or unsigned
+production `POST /mcp` returns 403.
 
-## 3. Build the exact marketplace container
+## Permission contract
+
+[`privos-app.json`](privos-app.json) is the canonical reviewed manifest. Each permission declares:
+
+- required or optional;
+- workspace/room context and user/background execution context;
+- a stable feature identifier and publisher reason;
+- deterministic degraded behavior for every optional permission.
+
+Required permissions are locked during approval. Optional permissions start from the exact
+approved subset and may be disabled later; Hub enforces the new epoch immediately. UI capability
+checks only hide or explain features and are never the authorization boundary. See
+[`SCOPES.md`](SCOPES.md) for the declaration-to-call-site map.
+
+Run the shared linter to print the deterministic canonical manifest and publisher permission hashes:
 
 ```bash
-npm run docker:build
-npm run docker:run
+npm run manifest:lint
 ```
 
-The multi-stage image builds without sibling repositories, runs as the unprivileged `node` user, and
-works with a read-only root filesystem, all Linux capabilities dropped, no-new-privileges and a
-100-process limit. The platform injects `PORT`, `PRIVOS_TRANSPORT=direct`,
-`PRIVOS_APP_LICENSE`, and `PRIVOS_WORKSPACE_ID`.
+Portal and Hub add the versioned authoritative permission catalog, data policy, and immutable image
+digest when computing the final permission-contract hash.
 
-## 4. Choose and justify scopes
+## License behavior
 
-Start with no scopes, add one only when a real call needs it, and write the reviewer-facing reason at
-the same time. [SCOPES.md](SCOPES.md) maps every requested scope to an actual panel and API call.
-Preflight fails if a declared scope lacks both documentation and an annotated call site.
+The manifest declares a Free tier (50 records) and Pro tier (5,000 records plus `bulk-export`).
+The backend calls `license.assert('bulk-export')` and `assertWithin('records', count)`. A lapsed Pro
+license degrades to Free without deleting records.
 
-## 5. Define pricing and license behavior
-
-`privos-app.json` is the canonical reviewed Marketplace/runtime manifest. Its `license.tiers`
-declares:
-
-- Free: 50 records.
-- Pro: 5,000 records plus `bulk-export`.
-
-The server guards the tool with `license.assert('bulk-export')` and
-`assertWithin('records', count)`. The License UI hides the Pro action on Free. A lapsed Pro license
-degrades to Free without deleting or mutating records. Until `@privos/app-license` is published,
-`src/license.ts` is a compatibility shim with the intended API surface.
-
-For local testing:
+Local Pro test:
 
 ```bash
-PRIVOS_APP_LICENSE='{"tier":"pro","state":"active"}' npm start
+PRIVOS_RUNTIME_MODE=development PRIVOS_APP_LICENSE='{"tier":"pro","state":"active"}' npm start
 ```
 
-## 6. Check the submission
+## Verification
 
 ```bash
 npm run typecheck
 npm test
+npm run build
 npm run preflight
+npm run docker:build
 ```
 
-Preflight checks the authoritative manifest, supported fields, scopes, Dockerfile, license guards,
-packaging policy, and the live manifest endpoint. Its rules are explicitly versioned as a temporary
-mirror until the portal's shared marketplace validation module is published. Failures include a
-specific fix.
+Preflight validates schema v2, canonical hashes, documented call sites, Docker inputs, license
+guards, safe source packaging, and the served manifest. Its versioned rules mirror Portal until the
+Marketplace validation package is published.
 
-## 7. Package source safely
-
-Commit the exact source you intend to submit, then run:
+## Safe source packaging
 
 ```bash
 npm run package
 ```
 
-This creates `dist-source/ai.privos.mcp-app-demo-1.0.0.zip` and a `.sha256` provenance
-file. It packages Git-tracked files, never sweeps the working directory, rejects dirty trees,
-credential-like files, build output and archives over 200 MiB. `--allow-dirty` exists for local
-inspection only.
+This creates `dist-source/ai.privos.mcp-app-demo-2.0.0.zip` plus a SHA-256 provenance file from
+Git-tracked source. It rejects dirty trees by default, credential-like files, `.env`, dependencies,
+build output, and archives over 200 MiB. `--allow-dirty` is for local inspection only.
 
-Never zip or tar the whole working directory. `.env`, backups, credentials, `node_modules`, `dist`
-and editor/agent state must not enter a submission.
+The multi-stage image installs only vendored/pinned package inputs, runs as `node`, supports a
+read-only root filesystem, and needs no production credential environment variables.
 
-## 8. Submit and review
+## Privacy, support, and release
 
-Upload the ZIP, its checksum, listing copy and assets. `privos-app.json` and `Dockerfile` must both
-be at the ZIP root. Review checks
-that the image builds from the archive, the manifest endpoint answers, requested scopes match code,
-license claims are enforced, no secrets are present, and the app behaves under hardened runtime
-flags. Typical rejection causes are sibling path dependencies, unjustified scopes, missing
-Dockerfiles, unsupported manifest keys and hidden credentials.
-
-### What happens to submitted source
-
-Marketplace behavior recorded in the authoritative marketplace plan on 2026-07-26: source is used
-only to review and build the app and is not shared with buyers. It is encrypted at rest, access is
-audited, and it is retained while a version is published so PrivOS can rebuild for base-image CVEs.
-After all versions are unpublished, the publisher can request deletion. Agent content is different:
-agents are installed into the buyer's workspace and are readable there; MCP app source remains
-confidential.
-
-This example is MIT-licensed so publishers can copy it. Marketplace apps do not have to be open
-source; publishers may choose their own license while still providing reviewable source privately.
-
-## 9. Release and update
-
-Follow [CHANGELOG.md](CHANGELOG.md) and SemVer. A marketplace listing version maps to the same
-`package.json` version. After approval the platform builds and digest-pins the image. Existing buyers
-remain on their installed digest until they opt into an update.
-
-## 10. Launch
-
-The [launch kit](launch-kit/README.md) includes listing copy, scope text, icon variants, screenshots,
-an OG image and a demo storyboard. Affiliate links may append publisher-issued SubIDs so campaign
-attribution stays separate without changing the listing identity.
-
-## Configuration
-
-See [.env.example](.env.example). No secret belongs in Git. Architecture and maintainer commands are
-summarized in [PRIVOS.md](PRIVOS.md).
-
-## Privacy and terms
-
-Marketplace use is governed by the app-specific [Privacy Notice](PRIVACY.md) and
-[Terms of Use](TERMS.md). Security or support questions can be filed through
-[GitHub Issues](https://github.com/PrivOS-AI/privos-mcp-app-demo/issues) or sent to
-`dev@privos.ai`.
+Marketplace review/build source remains publisher-confidential; buyer workspaces receive the
+digest-pinned image. See [`PRIVACY.md`](PRIVACY.md), [`TERMS.md`](TERMS.md), and
+[`CHANGELOG.md`](CHANGELOG.md). Support is available through GitHub Issues or `dev@privos.ai`.

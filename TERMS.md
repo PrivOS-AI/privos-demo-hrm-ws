@@ -2,7 +2,7 @@
 
 Last updated: 2026-08-02
 
-These terms apply to PrivOS Demo MCP App version 1.0.0. By installing or using
+These terms apply to PrivOS Demo MCP App version 2.0.0. By installing or using
 the app, the workspace owner agrees to these terms and the applicable PrivOS
 Marketplace and platform terms.
 

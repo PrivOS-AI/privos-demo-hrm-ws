@@ -4,6 +4,21 @@ This project follows [Semantic Versioning](https://semver.org/). Each marketplac
 must equal `privos-app.json.version` and `package.json.version`; change both release notes and metadata
 in one commit.
 
+## [2.0.0] - 2026-08-02
+
+### Changed
+
+- Replaced browser bearer tokens with capability-aware host calls and a
+  secretless workload identity derived from the app-cluster broker.
+- Adopted the strict schema-v2 permission contract and private, body-bound MCP
+  dispatch protocol. This is intentionally not compatible with v1 runtimes.
+
+### Security
+
+- The production image now carries the canonical reviewed manifest as an OCI
+  configuration label; Marketplace release approval remains a detached,
+  digest-bound control-plane attestation.
+
 ## [1.0.0] - 2026-08-02
 
 ### Added

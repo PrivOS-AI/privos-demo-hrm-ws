@@ -11,7 +11,7 @@ describe('safe packaging', () => {
     expect(result.status).toBe(0);
     const listing = spawnSync('unzip', [
       '-Z1',
-      'dist-source/ai.privos.mcp-app-demo-1.0.0.zip',
+      'dist-source/ai.privos.mcp-app-demo-2.0.0.zip',
     ], { encoding: 'utf8' });
     expect(listing.status).toBe(0);
     expect(listing.stdout.split('\n').filter((entry) => /(^|\/)\.env(?:\.|$)/.test(entry))).toEqual([]);

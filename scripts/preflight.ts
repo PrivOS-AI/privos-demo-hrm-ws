@@ -4,6 +4,7 @@ import { spawnSync } from 'node:child_process';
 import { createManifest, MARKETPLACE_MANIFEST_FIELDS } from '../src/manifest';
 import pkg from '../package.json';
 import { startHttpServer } from '../src/http-server';
+import { lintManifestV2 } from '@privos_ai/app-server/manifest-tools';
 
 export const PREFLIGHT_RULESET = 'marketplace-validation-mirror/2026-08-02';
 const failures: string[] = [];
@@ -22,8 +23,8 @@ for (const field of ['name', 'version', 'title', 'description'] as const) {
     fail(`Manifest field "${field}" differs from package.json.`, 'Keep package identity fields synchronized with privos-app.json.');
   }
 }
-if (manifest.schemaVersion !== 1 || manifest.kind !== 'mcp-app') {
-  fail('privos-app.json is not a schemaVersion 1 MCP app manifest.', 'Set schemaVersion to 1 and kind to mcp-app.');
+if (manifest.schemaVersion !== 2 || manifest.kind !== 'mcp-app') {
+  fail('privos-app.json is not a schemaVersion 2 MCP app manifest.', 'Set schemaVersion to 2 and kind to mcp-app.');
 }
 if (manifest.repository !== pkg.repository.url) {
   fail('Manifest repository differs from package.json.', 'Use the canonical GitHub repository URL in both files.');
@@ -36,7 +37,12 @@ if (!pkg.dockerfilePath || !fs.existsSync(path.resolve(pkg.dockerfilePath))) {
 const scopeDocs = fs.existsSync('SCOPES.md') ? fs.readFileSync('SCOPES.md', 'utf8') : '';
 const uiSources = fs.readdirSync('src/ui').filter((name) => /\.(ts|tsx)$/.test(name))
   .map((name) => fs.readFileSync(path.join('src/ui', name), 'utf8')).join('\n');
-for (const scope of manifest.scopes) {
+const lint = lintManifestV2(manifest);
+console.log(`canonicalManifestHash=${lint.canonicalManifestHash}`);
+console.log(`publisherPermissionDeclarationHash=${lint.publisherPermissionDeclarationHash || '<unavailable>'}`);
+for (const error of lint.errors) fail(`Manifest v2: ${error}.`, 'Run npm run manifest:lint and correct the reported contract.');
+for (const permission of manifest.permissions) {
+  const scope = permission.scope;
   if (!scopeDocs.includes(`\`${scope}\``) || !uiSources.includes(scope)) {
     fail(`Scope "${scope}" lacks a justification or annotated call site.`, 'Document it in SCOPES.md and reference it beside the real API call, or remove it.');
   }

@@ -34,7 +34,8 @@ interface BotKeyStatus {
 
 export default function SandboxConnectPanel() {
   const app = usePrivosApp();
-  const { roomId } = usePrivosContext();
+  const { roomId, effectiveScopes } = usePrivosContext();
+  const canWake = effectiveScopes?.includes('sandbox:wake') === true;
 
   const [status, setStatus] = useState<BotKeyStatus | null>(null);
   const [loading, setLoading] = useState(true);
@@ -170,7 +171,8 @@ export default function SandboxConnectPanel() {
             type="button"
             className="btn-submit"
             onClick={handleWake}
-            disabled={waking || loading || !canPush}
+            disabled={waking || loading || !canPush || !canWake}
+            title={!canWake ? 'Optional sandbox:wake permission not granted' : undefined}
           >
             {waking ? 'Waking…' : 'Wake VM'}
           </button>
@@ -178,6 +180,9 @@ export default function SandboxConnectPanel() {
             <span className="file-size" style={{ marginInlineStart: 8 }}>
               VM: {vmState}{vmState === 'running' ? ' ✓' : ''}
             </span>
+          )}
+          {!canWake && (
+            <span className="file-size" style={{ marginInlineStart: 8 }}>Wake is disabled by installation permissions.</span>
           )}
         </div>
       )}

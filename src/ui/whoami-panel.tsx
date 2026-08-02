@@ -2,51 +2,38 @@
  * "Who am I" panel — demonstrates hub-signed user identity end-to-end.
  *
  * Flow:
- *   1. The hub mints a short-lived RS256 JWT and pushes it to this iframe; we read
- *      it with `usePrivosUserToken()`.
- *   2. We forward that token to our OWN backend tool `hr_whoami` (via the relay).
- *   3. The backend VERIFIES it against the hub JWKS and returns the username it can
- *      cryptographically vouch for — see src/verify-privos-user.ts.
+ *   1. The iframe calls our backend tool through the mediated host bridge.
+ *   2. Hub privately dispatches the exact JSON-RPC body with a short-lived signed
+ *      assertion containing the verified actor.
+ *   3. The workload SDK validates signature, binding, expiry, body digest, and
+ *      replay before this backend handler sees the actor.
  *
  * The point of the demo: the backend-verified username is trustworthy even though
- * the token was relayed through the (untrusted) frontend, because the app can only
- * verify — never forge — a hub signature. The client-claimed username from
+ * no bearer/user token passed through the untrusted frontend. The display context from
  * `usePrivosContext()` is shown alongside purely for comparison.
  */
-import { usePrivosContext, usePrivosUserToken, usePrivosTool } from '@privos/app-react';
+import { usePrivosContext, usePrivosTool } from '@privos/app-react';
 
 interface WhoamiResult {
   verified: boolean;
   username?: string;
   userId?: string;
-  appId?: string;
   roomId?: string;
-  expiresAt?: number;
   message?: string;
   error?: string;
 }
 
 export default function WhoamiPanel() {
   const { username: clientClaimedUsername, userId: clientClaimedUserId } = usePrivosContext();
-  const userToken = usePrivosUserToken();
-  const { data, loading, error, refetch } = usePrivosTool<WhoamiResult>('hr_whoami', { userToken: userToken ?? '' });
-
-  const expiresIn = data?.expiresAt ? Math.max(0, data.expiresAt - Math.floor(Date.now() / 1000)) : null;
+  const { data, loading, error, refetch } = usePrivosTool<WhoamiResult>('hr_whoami', {});
 
   return (
     <div style={{ padding: 20, maxWidth: 640 }}>
       <h2 style={{ marginTop: 0 }}>Backend-verified identity</h2>
       <p style={{ opacity: 0.75, marginTop: -6 }}>
-        The username below is validated by the app <strong>backend</strong> against the hub&rsquo;s public JWKS —
-        not merely claimed by the frontend.
+        The username below is carried in a body-bound Hub dispatch assertion verified by the app
+        <strong> backend</strong>, not claimed by the frontend.
       </p>
-
-      {!userToken && (
-        <div style={box('#7a5900', '#fff7e0')}>
-          No user token in host context. The hub this app is paired to may predate signed user tokens,
-          or context hasn&rsquo;t arrived yet.
-        </div>
-      )}
 
       {loading && <div style={box('#334', '#eef')}>Verifying with backend&hellip;</div>}
 
@@ -58,8 +45,7 @@ export default function WhoamiPanel() {
           <div style={{ fontFamily: 'monospace', fontSize: 13, opacity: 0.8 }}>userId: {data.userId}</div>
           <div style={{ marginTop: 8, fontSize: 13 }}>
             <span style={badge('#12633a')}>verified by backend</span>
-            {data.appId ? <span style={{ marginLeft: 10, opacity: 0.7 }}>aud: {data.appId}</span> : null}
-            {expiresIn !== null ? <span style={{ marginLeft: 10, opacity: 0.7 }}>expires in {expiresIn}s</span> : null}
+            {data.roomId ? <span style={{ marginLeft: 10, opacity: 0.7 }}>room: {data.roomId}</span> : null}
           </div>
         </div>
       )}
@@ -76,8 +62,8 @@ export default function WhoamiPanel() {
           <div>username: {clientClaimedUsername ?? '—'}</div>
           <div>userId: {clientClaimedUserId ?? '—'}</div>
           <div style={{ marginTop: 6, opacity: 0.7 }}>
-            These come straight from the host context and would be forgeable on their own — only the
-            backend-verified block above is trustworthy.
+            These values are safe for display and UI state. Backend authorization uses only the
+            verified dispatch actor above.
           </div>
         </div>
       </details>

@@ -1,20 +1,23 @@
 /**
- * Entry point: connects to Privos via WebSocket relay.
- * No HTTP server needed — UI is delivered inline via MCP resources/read.
- * On first run (no credentials), starts the pairing flow.
+ * Entry point. Production uses direct private Cluster dispatch plus broker-based
+ * workload identity. Legacy WebSocket pairing is explicit development-only
+ * compatibility and is refused when NODE_ENV=production.
  */
 import 'dotenv/config';
 import fs from 'fs';
 import path from 'path';
+import { fileURLToPath } from 'node:url';
 
 import { connectRelay, pairWithPrivos } from './relay-client';
 import { handleMcpMessage, setDevPublicUrl } from './mcp-message-handlers';
+import { runtimeMode, startRuntimeIdentity } from './runtime-identity';
 import _pkg from '../privos-app.json';
 const pkg = _pkg as Record<string, any>;
+const moduleDir = path.dirname(fileURLToPath(import.meta.url));
 
 /** Read icon file as data URI for pairing metadata */
 function getIconDataUri(): string | undefined {
-	const iconPath = pkg.icon?.startsWith('/') ? path.join(__dirname, '..', pkg.icon) : undefined;
+	const iconPath = pkg.icon?.startsWith('/') ? path.join(moduleDir, '..', pkg.icon) : undefined;
 	if (!iconPath || !fs.existsSync(iconPath)) return undefined;
 	const ext = path.extname(iconPath).slice(1);
 	const mime = ext === 'svg' ? 'image/svg+xml' : `image/${ext}`;
@@ -23,6 +26,9 @@ function getIconDataUri(): string | undefined {
 }
 
 async function startRelay() {
+	if (runtimeMode() !== 'development-compatibility' || process.env.PRIVOS_ALLOW_LEGACY_RELAY_PAIRING !== '1') {
+		throw new Error('Relay client-credential compatibility is available only in explicit development mode.');
+	}
 	let privosUrl = process.env.PRIVOS_URL;
 	let clientId = process.env.CLIENT_ID;
 	let clientSecret = process.env.CLIENT_SECRET;
@@ -45,9 +51,9 @@ async function startRelay() {
 			description: pkg.description,
 			version: pkg.version,
 			icon: getIconDataUri(),
-			// Requested scopes — PrivOS grants this subset and uses it to gate the app's
-			// REST calls (app.rest()). See privos-app.json `scopes`.
-			scopes: Array.isArray(pkg.scopes) ? pkg.scopes : undefined,
+			// The legacy relay handshake only understands a flat scope list. This
+			// compatibility projection is never used by managed production installs.
+			scopes: Array.isArray(pkg.permissions) ? pkg.permissions.map((permission: any) => permission.scope) : undefined,
 		});
 
 		privosUrl = creds.privosUrl;
@@ -72,6 +78,7 @@ async function start() {
 	if (transport === 'direct') {
 		const { startHttpServer } = await import('./http-server');
 		startHttpServer();
+		startRuntimeIdentity();
 		return;
 	}
 	if (transport !== 'relay') throw new Error(`Unsupported PRIVOS_TRANSPORT: ${transport}`);

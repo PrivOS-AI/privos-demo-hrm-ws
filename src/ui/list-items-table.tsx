@@ -24,9 +24,10 @@ interface ListItemsTableProps {
   listId: string;
   fields: FieldDefinition[];
   refreshKey: number;
+  readOnly?: boolean;
 }
 
-export default function ListItemsTable({ app, listId, fields, refreshKey }: ListItemsTableProps) {
+export default function ListItemsTable({ app, listId, fields, refreshKey, readOnly = false }: ListItemsTableProps) {
   const [items, setItems] = useState<ItemData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -131,7 +132,7 @@ export default function ListItemsTable({ app, listId, fields, refreshKey }: List
           <tr>
             <th>Name</th>
             {fields.map((f) => <th key={f._id}>{f.name}</th>)}
-            <th style={{ width: 70 }}></th>
+            {!readOnly && <th style={{ width: 70 }}></th>}
           </tr>
         </thead>
         <tbody>
@@ -153,12 +154,12 @@ export default function ListItemsTable({ app, listId, fields, refreshKey }: List
                     )}
                   </td>
                 ))}
-                <td className="action-cell">
+                {!readOnly && <td className="action-cell">
                   <button className="btn-save" onClick={() => saveEdit(item._id)} disabled={saving}>
                     {saving ? '...' : 'ok'}
                   </button>
                   <button className="btn-cancel-edit" onClick={cancelEdit}>x</button>
-                </td>
+                </td>}
               </tr>
             ) : (
               <tr key={item._id}>
@@ -166,12 +167,12 @@ export default function ListItemsTable({ app, listId, fields, refreshKey }: List
                 {fields.map((f) => (
                   <td key={f._id}>{getFieldValue(item, f._id)}</td>
                 ))}
-                <td className="action-cell">
+                {!readOnly && <td className="action-cell">
                   <button className="btn-edit" onClick={() => startEdit(item)} title="Edit">&#9998;</button>
                   <button className="btn-delete" onClick={() => setConfirmDeleteId(item._id)} title="Delete">
                     &#128465;
                   </button>
-                </td>
+                </td>}
               </tr>
             )
           ))}
@@ -180,7 +181,7 @@ export default function ListItemsTable({ app, listId, fields, refreshKey }: List
       <p className="items-count">{items.length} record{items.length !== 1 ? 's' : ''}</p>
 
       {/* Delete confirmation modal */}
-      {confirmDeleteId && (
+      {!readOnly && confirmDeleteId && (
         <div className="modal-overlay" onClick={() => setConfirmDeleteId(null)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <p className="modal-title">Delete Record</p>

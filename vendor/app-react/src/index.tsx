@@ -87,22 +87,38 @@ export function usePrivosApp(): McpApp {
 
 export interface PrivosContext {
   userId: string; username: string; theme: string; roomId: string; roomName: string;
-  userRoles: string[]; userToken?: string; roomSlug?: string; appId?: string; appUrl?: string;
+  userRoles: string[]; effectiveScopes?: string[]; roomSlug?: string; appId?: string; appUrl?: string;
 }
 const emptyContext: PrivosContext = {
   userId: '', username: '', theme: 'light', roomId: '', roomName: '', userRoles: [],
 };
 
+function mergeHostContext(current: PrivosContext, input: unknown): PrivosContext {
+  const next = input && typeof input === 'object' ? input as Record<string, unknown> : {};
+  const text = (key: keyof PrivosContext) => typeof next[key] === 'string' ? String(next[key]) : String(current[key] || '');
+  return {
+    userId: text('userId'), username: text('username'), theme: text('theme') || 'light',
+    roomId: text('roomId'), roomName: text('roomName'),
+    userRoles: Array.isArray(next.userRoles) ? next.userRoles.filter((role): role is string => typeof role === 'string') : current.userRoles,
+    ...(Array.isArray(next.effectiveScopes)
+      ? { effectiveScopes: next.effectiveScopes.filter((scope): scope is string => typeof scope === 'string') }
+      : current.effectiveScopes ? { effectiveScopes: current.effectiveScopes } : {}),
+    ...(text('roomSlug') ? { roomSlug: text('roomSlug') } : {}),
+    ...(text('appId') ? { appId: text('appId') } : {}),
+    ...(text('appUrl') ? { appUrl: text('appUrl') } : {}),
+  };
+}
+
 export function usePrivosContext(): PrivosContext {
   const app = usePrivosApp();
   const [context, setContext] = useState(emptyContext);
   useEffect(() => {
-    app.onhostcontextchanged = (next) => setContext((current) => ({ ...current, ...next }));
-    void app.callServerTool({ name: 'privos.context.get', arguments: {} })
+    app.onhostcontextchanged = (next) => setContext((current) => mergeHostContext(current, next));
+    void app.callServerTool({ name: 'mcpapp.context.get', arguments: {} })
       .then((result) => {
         const next = typeof result?.content?.[0]?.text === 'string'
           ? JSON.parse(result.content[0].text) : result;
-        setContext((current) => ({ ...current, ...next }));
+        setContext((current) => mergeHostContext(current, next));
       })
       .catch(() => undefined);
     return () => { app.onhostcontextchanged = undefined; };
@@ -110,8 +126,9 @@ export function usePrivosContext(): PrivosContext {
   return context;
 }
 
-export function usePrivosUserToken() {
-  return usePrivosContext().userToken;
+export function usePrivosCapability(scope: string) {
+  const { effectiveScopes } = usePrivosContext();
+  return { resolved: Array.isArray(effectiveScopes), granted: Array.isArray(effectiveScopes) && effectiveScopes.includes(scope), scope };
 }
 
 export function usePrivosTool<T = any>(toolName: string, args: Record<string, any>) {

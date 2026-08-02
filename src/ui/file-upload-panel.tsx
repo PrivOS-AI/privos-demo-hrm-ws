@@ -10,7 +10,7 @@
  */
 import { useState, useEffect, useCallback } from 'react';
 import { usePrivosApp, usePrivosContext } from '@privos/app-react';
-import { restCall } from './privos-rest';
+import { restCall, safeFeatureError } from './privos-rest';
 
 interface RoomFile {
   _id: string;
@@ -57,7 +57,8 @@ function readAsDataUri(file: File): Promise<string> {
 
 export default function FileUploadPanel() {
   const app = usePrivosApp();
-  const { roomId } = usePrivosContext();
+  const { roomId, effectiveScopes } = usePrivosContext();
+  const canUpload = effectiveScopes?.includes('files:write') === true;
 
   const [files, setFiles] = useState<RoomFile[]>([]);
   const [loading, setLoading] = useState(true);
@@ -123,7 +124,7 @@ export default function FileUploadPanel() {
       setSelected(null);
       await loadFiles();
     } catch (err: any) {
-      setError(err?.message || 'Upload failed.');
+      setError(safeFeatureError(err, 'Upload failed.'));
     } finally {
       setUploading(false);
     }
@@ -135,10 +136,13 @@ export default function FileUploadPanel() {
 
       <div className="upload-row">
         <input type="file" onChange={(e) => setSelected(e.target.files?.[0] || null)} />
-        <button type="button" className="btn-submit" onClick={handleUpload} disabled={!selected || uploading}>
+        <button type="button" className="btn-submit" onClick={handleUpload} disabled={!canUpload || !selected || uploading}>
           {uploading ? 'Uploading...' : 'Upload'}
         </button>
       </div>
+      {!canUpload && (
+        <p className="items-count">Uploads are disabled because the optional <code>files:write</code> permission is not granted.</p>
+      )}
 
       {error && <div className="error-message">{error}</div>}
 

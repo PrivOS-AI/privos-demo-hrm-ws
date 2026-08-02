@@ -1,20 +1,21 @@
-# Scope justifications
+# Permission justifications
 
-This app requests only scopes exercised by the shipped UI. Reviewers can map every scope below to
-the named call sites.
+`privos-app.json` is the authoritative declaration. This table maps every permission to a shipped
+call site and explains the behavior when an optional permission is absent.
 
-| Scope | Why it is required |
-|---|---|
-| `basic:information` | Reads the current room, app and deep-link identifiers in `info-panel.tsx`. |
-| `lists:read` | Lists HR lists, fields, stages and records in `contact-collector-form.tsx` and `list-items-table.tsx`. |
-| `lists:write` | Creates and edits the demo HR list, fields and records in the records panel. |
-| `files:read` | Lists and downloads room files in `file-upload-panel.tsx`. |
-| `files:write` | Uploads a selected file through the host file bridge in `file-upload-panel.tsx`. |
-| `sandbox:skills:use` | Lists and synchronizes selected workspace skills in `skills-panel.tsx`. |
-| `sandbox:botkey:push` | Reads bot-key status and explicitly pushes the key in `sandbox-connect-panel.tsx`. |
-| `sandbox:wake` | Wakes an idle sandbox and polls its VM state in `sandbox-connect-panel.tsx`. |
-| `sandbox:ai-chat` | Reads AI sessions and generated messages in the chat, poem and history panels. |
-| `sandbox:ai-chat:write` | Sends, starts and cancels AI generations in the chat and poem panels. |
+| Permission | Requirement | Execution | Why / call site | Behavior when absent |
+|---|---|---|---|---|
+| `basic:information` | Required | Room; user + background | Loads installation and room context in `info-panel.tsx` and validates workload context. | Installation is cancelled if rejected. |
+| `lists:read` | Required | Room; user | Reads HR lists, fields, stages, and items in `contact-collector-form.tsx` and `list-items-table.tsx`. | Installation is cancelled if rejected. |
+| `lists:write` | Optional | Room; user | Creates and edits HR lists, fields, and records in the Records panel. | Records remain readable; create/edit/delete controls are disabled. |
+| `files:read` | Optional | Room; user | Lists and previews room files in `file-upload-panel.tsx`. | The Files panel is hidden with an explanation. |
+| `files:write` | Optional | Room; user | Uploads files via `app.uploadFile()` in `file-upload-panel.tsx` and record file fields. | Upload buttons and file fields are disabled. |
+| `sandbox:skills:use` | Optional | Room; user | Lists and synchronizes room sandbox skills in `skills-panel.tsx`. | Skill controls are hidden. |
+| `sandbox:botkey:push` | Optional | Room; user | Reads bot-key status and performs an explicit push in `sandbox-connect-panel.tsx`. | Sandbox connection controls are hidden. |
+| `sandbox:wake` | Optional | Room; user | Wakes and polls the room sandbox in `sandbox-connect-panel.tsx`. | Wake is disabled while other granted sandbox controls remain usable. |
+| `sandbox:ai-chat` | Optional | Room; user | Reads sessions/history in `ai-chat-panel.tsx`, `ai-poem-panel.tsx`, and `ai-history-panel.tsx`. | Existing AI sessions are not displayed. |
+| `sandbox:ai-chat:write` | Optional | Room; user | Starts, sends, cancels, and generates AI work in the chat and poem panels. | Creation/generation panels are disabled; separately granted read history remains available. |
 
-No scope is requested for the app-owned `hr_bulk_export` tool: that operation processes input passed
-to the app and is gated by its Pro license feature rather than a workspace REST permission.
+The app-owned `hr_bulk_export` tool does not request a workspace permission. It processes caller
+input and is gated by the Pro license feature. The Hub still enforces installation status, receipt,
+epoch, target room, exact grant, and current-user ACL on every mediated platform operation.

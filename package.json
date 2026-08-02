@@ -1,11 +1,11 @@
 {
   "name": "ai.privos.mcp-app-demo",
-  "version": "1.0.0",
+  "version": "2.0.0",
+  "type": "module",
   "private": false,
   "description": "Reference PrivOS MCP app demonstrating HR workflows, scoped workspace APIs, AI and sandbox controls, and license-aware features.",
   "title": "PrivOS Demo MCP App",
   "icon": "/public/icon.svg",
-  "scopes": ["basic:information", "lists:read", "lists:write", "files:read", "files:write", "sandbox:skills:use", "sandbox:botkey:push", "sandbox:wake", "sandbox:ai-chat", "sandbox:ai-chat:write"],
   "homepage": "https://privos.ai",
   "author": {
     "name": "PrivOS AI",
@@ -24,7 +24,9 @@
       },
       {
         "id": "pro",
-        "features": ["bulk-export"],
+        "features": [
+          "bulk-export"
+        ],
         "limits": {
           "records": 5000
         }
@@ -32,7 +34,15 @@
     ]
   },
   "dockerfilePath": "Dockerfile",
-  "keywords": ["hr", "management", "mcp", "demo", "privos", "relay", "websocket"],
+  "keywords": [
+    "hr",
+    "management",
+    "mcp",
+    "demo",
+    "privos",
+    "relay",
+    "websocket"
+  ],
   "repository": {
     "type": "git",
     "url": "https://github.com/PrivOS-AI/privos-mcp-app-demo"
@@ -41,18 +51,20 @@
     "node": ">=22.0.0"
   },
   "scripts": {
-    "build": "vite build && tsx scripts/generate-manifest.ts",
-    "dev": "PRIVOS_TRANSPORT=relay PRIVOS_DEV_UI=1 tsx src/server.ts",
+    "build": "vite build && tsx scripts/generate-manifest.ts && npm run manifest:lint",
+    "dev": "PRIVOS_RUNTIME_MODE=development PRIVOS_ALLOW_LEGACY_RELAY_PAIRING=1 PRIVOS_TRANSPORT=relay PRIVOS_DEV_UI=1 tsx src/server.ts",
     "start": "tsx src/server.ts",
-    "start:relay": "PRIVOS_TRANSPORT=relay tsx src/server.ts",
+    "start:relay": "PRIVOS_RUNTIME_MODE=development PRIVOS_ALLOW_LEGACY_RELAY_PAIRING=1 PRIVOS_TRANSPORT=relay tsx src/server.ts",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "manifest:lint": "privos-app-lint privos-app.json",
     "preflight": "tsx scripts/preflight.ts",
     "package": "bash scripts/package-source.sh",
-    "docker:build": "docker build -t privos-mcp-app-demo:local .",
+    "docker:build": "bash scripts/build-marketplace-image.sh privos-mcp-app-demo:local",
     "docker:run": "docker run --rm --read-only --cap-drop ALL --security-opt no-new-privileges --pids-limit 100 --tmpfs /tmp -e PORT=3000 privos-mcp-app-demo:local"
   },
   "dependencies": {
+    "@privos_ai/app-server": "file:vendor/privos_ai-app-server-0.2.0.tgz",
     "dotenv": "^17.3.1",
     "tsx": "^4.0.0",
     "ws": "^8.21.0"

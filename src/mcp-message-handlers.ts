@@ -6,21 +6,22 @@
  */
 import fs from 'fs';
 import path from 'path';
+import { fileURLToPath } from 'node:url';
 
 import _pkg from '../privos-app.json';
-import { verifyPrivosUser } from './verify-privos-user';
 import { createLicenseGuard } from './license';
 const pkg = _pkg as Record<string, any>;
+const moduleDir = path.dirname(fileURLToPath(import.meta.url));
 const TOOL_NAME = 'hr_management_dashboard';
-// Pure data (no UI) tool: verifies the hub-signed user token and returns the
-// backend-validated identity so the frontend can prove who the requester is.
+// Pure data (no UI) tool: returns the actor carried by the body-bound, Hub-signed
+// private dispatch assertion verified before the request reaches this handler.
 const WHOAMI_TOOL = 'hr_whoami';
 const BULK_EXPORT_TOOL = 'hr_bulk_export';
 const UI_RESOURCE_URI = 'ui://privos-mcp-app-demo/form.html';
 
 /** Read icon as data URI from package.json icon path */
 function getIconDataUri(): string | undefined {
-	const iconPath = pkg.icon?.startsWith('/') ? path.join(__dirname, '..', pkg.icon) : undefined;
+	const iconPath = pkg.icon?.startsWith('/') ? path.join(moduleDir, '..', pkg.icon) : undefined;
 	if (!iconPath || !fs.existsSync(iconPath)) return undefined;
 	const ext = path.extname(iconPath).slice(1);
 	const mime = ext === 'svg' ? 'image/svg+xml' : `image/${ext}`;
@@ -50,7 +51,12 @@ export function invalidateUiCache(): void {
 }
 
 /** Handle an incoming MCP JSON-RPC request and return the result */
-export async function handleMcpMessage(method: string, _id: number, params: any): Promise<any> {
+export async function handleMcpMessage(
+	method: string,
+	_id: number,
+	params: any,
+	dispatch?: { actor?: { subject: string; username?: string; roomId?: string } },
+): Promise<any> {
 	switch (method) {
 		case 'initialize':
 			return {
@@ -67,9 +73,9 @@ export async function handleMcpMessage(method: string, _id: number, params: any)
 				name: pkg.title || pkg.name,
 				version: pkg.version,
 				...(appIcon && { icon: appIcon }),
-				// Advertise the manifest's requested scopes so the hub can refresh
-				// `requestedScopes` on reconnect/refresh without a re-pair.
-				...(Array.isArray(pkg.scopes) && { scopes: pkg.scopes }),
+				// Advertise the exact schema-v2 declaration; Hub owns catalog metadata
+				// and still enforces the selected subset server-side.
+				...(Array.isArray(pkg.permissions) && { permissions: pkg.permissions }),
 			},
 			};
 
@@ -95,16 +101,10 @@ export async function handleMcpMessage(method: string, _id: number, params: any)
 						name: WHOAMI_TOOL,
 						title: 'Who am I (verified)',
 						description:
-							'Verify the hub-signed user token and return the backend-validated identity (username + userId) of the requester.',
+							"Return the actor authenticated by the Hub's body-bound private dispatch assertion.",
 						inputSchema: {
 							type: 'object',
-							properties: {
-								userToken: {
-									type: 'string',
-									description: 'The hub-issued RS256 user identity token (from usePrivosUserToken on the frontend).',
-								},
-							},
-							required: ['userToken'],
+							properties: {},
 						},
 					},
 					{
@@ -129,7 +129,7 @@ export async function handleMcpMessage(method: string, _id: number, params: any)
 				return { content: [{ type: 'text', text: JSON.stringify({ exported: records.length, records }) }] };
 			}
 			if (params?.name === WHOAMI_TOOL) {
-				return handleWhoami(params?.arguments || {});
+				return handleWhoami(dispatch?.actor);
 			}
 			if (params?.name !== TOOL_NAME) {
 				throw new Error(`Unknown tool: ${params?.name || '<missing>'}`);
@@ -166,33 +166,21 @@ export async function handleMcpMessage(method: string, _id: number, params: any)
 /**
  * Backend handler for the `hr_whoami` tool.
  *
- * The frontend forwards the hub-signed user token; here we VERIFY it against the
- * hub JWKS (asymmetric — this app can never forge one) and return the identity the
- * hub vouches for. The result is wrapped as MCP `content[0].text` JSON so the
- * frontend `usePrivosTool` hook can parse it directly.
+ * Production identity comes from the body-bound Hub dispatch assertion verified
+ * by the workload SDK before this handler runs. The iframe never receives or
+ * forwards a bearer/user token.
  */
-async function handleWhoami(args: Record<string, any>): Promise<any> {
+async function handleWhoami(actor?: { subject: string; username?: string; roomId?: string }): Promise<any> {
 	const wrap = (obj: Record<string, any>) => ({ content: [{ type: 'text', text: JSON.stringify(obj) }] });
-	try {
-		// The token `aud` is the hub-assigned appId (e.g. "relay-..."), which a relay
-		// backend does not inherently know. Signature + expiry are always enforced;
-		// audience is checked only when the operator pins it via PRIVOS_APP_ID.
-		const expectedAppId = process.env.PRIVOS_APP_ID || undefined;
-		const user = await verifyPrivosUser(args?.userToken, expectedAppId ? { expectedAppId } : undefined);
-		return wrap({
-			verified: true,
-			username: user.username,
-			userId: user.userId,
-			appId: user.appId,
-			roomId: user.roomId,
-			expiresAt: user.expiresAt,
-			message: `Backend verified this request came from ${user.username} (${user.userId}).`,
-		});
-	} catch (err: any) {
-		// Verification failure is a normal, expected outcome (missing/expired/forged token) —
-		// return it as data so the frontend can show a clear "not verified" state.
-		return wrap({ verified: false, error: err?.message || 'Verification failed' });
-	}
+	if (!actor) return wrap({ verified: false, error: 'Verified backend actor is unavailable in relay development compatibility mode.' });
+	const username = actor.username || actor.subject;
+	return wrap({
+		verified: true,
+		username,
+		userId: actor.subject,
+		roomId: actor.roomId,
+		message: `Backend verified this request came from ${username} (${actor.subject}).`,
+	});
 }
 
 /**
@@ -233,7 +221,7 @@ function getInlineUiHtml(): string {
 	// Dev mode: serve live from the Vite dev server for HMR + breakpoints.
 	if (devPublicUrl) return getDevUiHtml(devPublicUrl);
 
-	const distDir = path.join(__dirname, '../dist/ui');
+	const distDir = path.join(moduleDir, '../dist/ui');
 
 	// In dev watch mode, check if build output changed since last cache
 	const assetsPath = path.join(distDir, 'assets');

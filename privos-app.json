@@ -1,8 +1,8 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "kind": "mcp-app",
   "name": "ai.privos.mcp-app-demo",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "title": "PrivOS Demo MCP App",
   "description": "Reference PrivOS MCP app demonstrating HR workflows, scoped workspace APIs, AI and sandbox controls, and license-aware features.",
   "icon": "/public/icon.svg",
@@ -13,18 +13,103 @@
   },
   "homepage": "https://privos.ai",
   "repository": "https://github.com/PrivOS-AI/privos-mcp-app-demo",
-  "scopes": [
-    "basic:information",
-    "lists:read",
-    "lists:write",
-    "files:read",
-    "files:write",
-    "sandbox:skills:use",
-    "sandbox:botkey:push",
-    "sandbox:wake",
-    "sandbox:ai-chat",
-    "sandbox:ai-chat:write"
+  "permissions": [
+    {
+      "scope": "basic:information",
+      "requirement": "required",
+      "context": "room",
+      "executionContext": "both",
+      "feature": "core.context",
+      "reason": "Identify the approved installation and room so the dashboard can load safely."
+    },
+    {
+      "scope": "lists:read",
+      "requirement": "required",
+      "context": "room",
+      "executionContext": "user",
+      "feature": "hr.records.read",
+      "reason": "Read the HR lists selected for this room."
+    },
+    {
+      "scope": "lists:write",
+      "requirement": "optional",
+      "context": "room",
+      "executionContext": "user",
+      "feature": "hr.records.manage",
+      "reason": "Create and update HR records from the dashboard.",
+      "recommended": true,
+      "degradedBehavior": "The dashboard remains read-only."
+    },
+    {
+      "scope": "files:read",
+      "requirement": "optional",
+      "context": "room",
+      "executionContext": "user",
+      "feature": "hr.files.read",
+      "reason": "List and preview HR documents attached to the room.",
+      "degradedBehavior": "Document previews and the room file list are hidden."
+    },
+    {
+      "scope": "files:write",
+      "requirement": "optional",
+      "context": "room",
+      "executionContext": "user",
+      "feature": "hr.files.manage",
+      "reason": "Upload HR documents and generated exports to the room.",
+      "degradedBehavior": "Uploads remain disabled; existing records are unchanged."
+    },
+    {
+      "scope": "sandbox:skills:use",
+      "requirement": "optional",
+      "context": "room",
+      "executionContext": "user",
+      "feature": "sandbox.skills",
+      "reason": "Show and select the skills enabled in the room sandbox.",
+      "degradedBehavior": "Sandbox skill controls are hidden."
+    },
+    {
+      "scope": "sandbox:botkey:push",
+      "requirement": "optional",
+      "context": "room",
+      "executionContext": "user",
+      "feature": "sandbox.connect",
+      "reason": "Connect the room sandbox to its installation-specific bot identity.",
+      "degradedBehavior": "The dashboard cannot connect or rotate the sandbox bot identity."
+    },
+    {
+      "scope": "sandbox:wake",
+      "requirement": "optional",
+      "context": "room",
+      "executionContext": "user",
+      "feature": "sandbox.wake",
+      "reason": "Wake the approved room sandbox and display its state.",
+      "degradedBehavior": "Sandbox wake and state controls are unavailable."
+    },
+    {
+      "scope": "sandbox:ai-chat",
+      "requirement": "optional",
+      "context": "room",
+      "executionContext": "user",
+      "feature": "sandbox.chat.read",
+      "reason": "Read AI chat history created in the approved room.",
+      "degradedBehavior": "Existing AI chat sessions are not displayed."
+    },
+    {
+      "scope": "sandbox:ai-chat:write",
+      "requirement": "optional",
+      "context": "room",
+      "executionContext": "user",
+      "feature": "sandbox.chat.manage",
+      "reason": "Start, send, and stop AI chat work in the approved room.",
+      "degradedBehavior": "AI chat remains read-only when read access is granted, or hidden otherwise."
+    }
   ],
+  "dataPolicy": {
+    "version": "2026-08-02",
+    "retention": "App data is retained until the installation or corresponding HR records are deleted.",
+    "externalProcessing": false
+  },
+  "availabilityTier": "single",
   "tools": [
     {
       "name": "hr_management_dashboard",
@@ -45,18 +130,10 @@
     {
       "name": "hr_whoami",
       "title": "Who am I (verified)",
-      "description": "Verify the hub-signed user token and return the backend-validated identity of the requester.",
+      "description": "Return the user identity authenticated by the Hub's body-bound private dispatch assertion.",
       "inputSchema": {
         "type": "object",
-        "properties": {
-          "userToken": {
-            "type": "string",
-            "description": "The hub-issued RS256 user identity token."
-          }
-        },
-        "required": [
-          "userToken"
-        ]
+        "properties": {}
       }
     },
     {

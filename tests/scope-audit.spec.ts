@@ -10,9 +10,13 @@ describe('scope audit', () => {
       .filter((name) => /\.(ts|tsx)$/.test(name))
       .map((name) => fs.readFileSync(path.resolve('src/ui', name), 'utf8'))
       .join('\n');
-    for (const scope of manifest.scopes) {
+    for (const permission of manifest.permissions) {
+      const scope = permission.scope;
       expect(docs, `${scope} justification`).toContain(`\`${scope}\``);
       expect(sources, `${scope} call-site annotation`).toContain(scope);
+      if (permission.requirement === 'optional') {
+        expect(permission.degradedBehavior, `${scope} degraded behavior`).toBeTruthy();
+      }
     }
   });
 });
