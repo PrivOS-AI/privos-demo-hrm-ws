@@ -9,7 +9,7 @@ import path from 'path';
 
 import { connectRelay, pairWithPrivos } from './relay-client';
 import { handleMcpMessage, setDevPublicUrl } from './mcp-message-handlers';
-import _pkg from '../package.json';
+import _pkg from '../privos-app.json';
 const pkg = _pkg as Record<string, any>;
 
 /** Read icon file as data URI for pairing metadata */
@@ -46,7 +46,7 @@ async function startRelay() {
 			version: pkg.version,
 			icon: getIconDataUri(),
 			// Requested scopes — PrivOS grants this subset and uses it to gate the app's
-			// REST calls (app.rest()). See package.json `scopes`.
+			// REST calls (app.rest()). See privos-app.json `scopes`.
 			scopes: Array.isArray(pkg.scopes) ? pkg.scopes : undefined,
 		});
 

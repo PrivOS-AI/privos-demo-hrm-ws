@@ -1,4 +1,4 @@
-# PrivOS reference MCP app
+# PrivOS Demo MCP App
 
 This repository is the copyable, marketplace-ready example of a PrivOS MCP app. It shows one
 transport-neutral JSON-RPC handler set, a React MCP App UI, minimum justified workspace scopes,
@@ -12,8 +12,8 @@ MCP calls and workspace REST access, and the buyer consents to the scopes in [SC
 Requirements: Node.js 22+, npm, Git and Docker.
 
 ```bash
-git clone https://github.com/PrivOS-AI/privos-demo-hrm-ws
-cd privos-demo-hrm-ws
+git clone https://github.com/PrivOS-AI/privos-mcp-app-demo
+cd privos-mcp-app-demo
 npm ci
 cp .env.example .env
 npm run dev
@@ -62,7 +62,8 @@ Preflight fails if a declared scope lacks both documentation and an annotated ca
 
 ## 5. Define pricing and license behavior
 
-`package.json` is the single metadata source. Its `license.tiers` declares:
+`privos-app.json` is the canonical reviewed Marketplace/runtime manifest. Its `license.tiers`
+declares:
 
 - Free: 50 records.
 - Pro: 5,000 records plus `bulk-export`.
@@ -99,7 +100,7 @@ Commit the exact source you intend to submit, then run:
 npm run package
 ```
 
-This creates `dist-source/ai.privos.demo-hr-management-ws-1.0.0.tar.gz` and a `.sha256` provenance
+This creates `dist-source/ai.privos.mcp-app-demo-1.0.0.zip` and a `.sha256` provenance
 file. It packages Git-tracked files, never sweeps the working directory, rejects dirty trees,
 credential-like files, build output and archives over 200 MiB. `--allow-dirty` exists for local
 inspection only.
@@ -109,7 +110,8 @@ and editor/agent state must not enter a submission.
 
 ## 8. Submit and review
 
-Upload the archive, its checksum, listing copy, assets and `dockerfilePath: Dockerfile`. Review checks
+Upload the ZIP, its checksum, listing copy and assets. `privos-app.json` and `Dockerfile` must both
+be at the ZIP root. Review checks
 that the image builds from the archive, the manifest endpoint answers, requested scopes match code,
 license claims are enforced, no secrets are present, and the app behaves under hardened runtime
 flags. Typical rejection causes are sibling path dependencies, unjustified scopes, missing

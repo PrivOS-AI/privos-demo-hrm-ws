@@ -18,12 +18,12 @@ jobs:
       - run: npm test
       - run: npm run preflight
       - run: npm run package
-      - run: docker build -t privos-demo-hrm-ws:test .
+      - run: docker build -t privos-mcp-app-demo:test .
       - name: Hardened container smoke test
         run: |
           docker run -d --name reference-app --read-only --cap-drop ALL \
             --security-opt no-new-privileges --pids-limit 100 --tmpfs /tmp \
-            -e PORT=3000 -p 127.0.0.1:3000:3000 privos-demo-hrm-ws:test
+            -e PORT=3000 -p 127.0.0.1:3000:3000 privos-mcp-app-demo:test
           trap 'docker rm -f reference-app' EXIT
           for attempt in $(seq 1 30); do
             curl --fail http://127.0.0.1:3000/.well-known/mcp/manifest.json && break

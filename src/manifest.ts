@@ -1,14 +1,17 @@
-import pkg from '../package.json';
+import publisherManifest from '../privos-app.json';
 
-export const HUB_MANIFEST_FIELDS = [
-  'name', 'version', 'title', 'description', 'icon', 'author',
-  'homepage', 'repository', 'scopes', 'license',
+export const MARKETPLACE_MANIFEST_FIELDS = [
+  'schemaVersion', 'kind', 'name', 'version', 'title', 'description', 'icon',
+  'author', 'homepage', 'repository', 'scopes', 'tools', 'port', 'resources',
+  'volumes', 'stateless', 'license',
 ] as const;
 
-export type AppManifest = Pick<typeof pkg, (typeof HUB_MANIFEST_FIELDS)[number]>;
+export const HUB_MANIFEST_FIELDS = MARKETPLACE_MANIFEST_FIELDS;
+
+export type AppManifest = Pick<typeof publisherManifest, (typeof MARKETPLACE_MANIFEST_FIELDS)[number]>;
 
 export function createManifest(): AppManifest {
   return Object.fromEntries(
-    HUB_MANIFEST_FIELDS.map((field) => [field, pkg[field]]),
+    MARKETPLACE_MANIFEST_FIELDS.map((field) => [field, publisherManifest[field]]),
   ) as AppManifest;
 }

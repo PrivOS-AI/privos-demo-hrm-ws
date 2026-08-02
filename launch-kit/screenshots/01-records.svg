@@ -2,7 +2,7 @@
   <rect width="1440" height="900" fill="#eef5ff"/>
   <rect x="70" y="55" width="1300" height="790" rx="28" fill="#fff" stroke="#c9dbf3"/>
   <rect x="70" y="55" width="1300" height="96" rx="28" fill="#001930"/>
-  <text x="118" y="116" fill="#FFFAE8" font-family="Arial" font-size="30" font-weight="700">Demo HR Management</text>
+  <text x="118" y="116" fill="#FFFAE8" font-family="Arial" font-size="30" font-weight="700">PrivOS Demo MCP App</text>
   <text x="118" y="220" fill="#001930" font-family="Arial" font-size="38" font-weight="700">Employee records</text>
   <rect x="1040" y="180" width="250" height="58" rx="14" fill="#3C82E6"/>
   <text x="1090" y="218" fill="#fff" font-family="Arial" font-size="22">Add employee</text>

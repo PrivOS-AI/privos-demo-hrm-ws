@@ -1,11 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import pkg from '../package.json';
-import { createManifest, HUB_MANIFEST_FIELDS } from '../src/manifest';
+import publisherManifest from '../privos-app.json';
+import { createManifest, MARKETPLACE_MANIFEST_FIELDS } from '../src/manifest';
 
 describe('manifest', () => {
-  it('is generated from package metadata and contains only parser-supported fields', () => {
+  it('serves the canonical Marketplace manifest', () => {
     const manifest = createManifest();
-    expect(Object.keys(manifest)).toEqual(HUB_MANIFEST_FIELDS);
-    for (const field of HUB_MANIFEST_FIELDS) expect(manifest[field]).toEqual(pkg[field]);
+    expect(Object.keys(manifest)).toEqual(MARKETPLACE_MANIFEST_FIELDS);
+    expect(manifest).toEqual(publisherManifest);
+    expect(manifest.name).toBe(pkg.name);
+    expect(manifest.version).toBe(pkg.version);
+    expect(manifest.title).toBe(pkg.title);
+    expect(manifest.repository).toBe(pkg.repository.url);
   });
 });

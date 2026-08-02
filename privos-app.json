@@ -1,0 +1,112 @@
+{
+  "schemaVersion": 1,
+  "kind": "mcp-app",
+  "name": "ai.privos.mcp-app-demo",
+  "version": "1.0.0",
+  "title": "PrivOS Demo MCP App",
+  "description": "Reference PrivOS MCP app demonstrating HR workflows, scoped workspace APIs, AI and sandbox controls, and license-aware features.",
+  "icon": "/public/icon.svg",
+  "author": {
+    "name": "PrivOS AI",
+    "email": "dev@privos.ai",
+    "website": "https://privos.ai"
+  },
+  "homepage": "https://privos.ai",
+  "repository": "https://github.com/PrivOS-AI/privos-mcp-app-demo",
+  "scopes": [
+    "basic:information",
+    "lists:read",
+    "lists:write",
+    "files:read",
+    "files:write",
+    "sandbox:skills:use",
+    "sandbox:botkey:push",
+    "sandbox:wake",
+    "sandbox:ai-chat",
+    "sandbox:ai-chat:write"
+  ],
+  "tools": [
+    {
+      "name": "hr_management_dashboard",
+      "title": "PrivOS Demo MCP App",
+      "description": "Open the interactive HR workflow and PrivOS platform demonstration dashboard.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "roomId": {
+            "type": "string"
+          }
+        }
+      },
+      "ui": {
+        "resourceUri": "ui://privos-mcp-app-demo/form.html"
+      }
+    },
+    {
+      "name": "hr_whoami",
+      "title": "Who am I (verified)",
+      "description": "Verify the hub-signed user token and return the backend-validated identity of the requester.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "userToken": {
+            "type": "string",
+            "description": "The hub-issued RS256 user identity token."
+          }
+        },
+        "required": [
+          "userToken"
+        ]
+      }
+    },
+    {
+      "name": "hr_bulk_export",
+      "title": "Bulk export HR records",
+      "description": "Export records in bulk. Requires the Pro tier.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "records": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          }
+        },
+        "required": [
+          "records"
+        ]
+      }
+    }
+  ],
+  "port": 3000,
+  "resources": {
+    "memoryMb": 256,
+    "cpus": 0.25,
+    "tmpSizeMb": 64
+  },
+  "volumes": [],
+  "stateless": true,
+  "license": {
+    "tiers": [
+      {
+        "id": "free",
+        "name": "Free",
+        "features": [],
+        "limits": {
+          "records": 50
+        }
+      },
+      {
+        "id": "pro",
+        "name": "Pro",
+        "features": [
+          "bulk-export"
+        ],
+        "limits": {
+          "records": 5000
+        }
+      }
+    ]
+  }
+}

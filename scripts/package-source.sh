@@ -29,27 +29,21 @@ name="$(node -p "require('./package.json').name")"
 version="$(node -p "require('./package.json').version")"
 safe_name="${name//\//-}"
 output_dir="dist-source"
-archive="$output_dir/$safe_name-$version.tar.gz"
+archive="$output_dir/$safe_name-$version.zip"
 mkdir -p "$output_dir"
 
 if [[ "$allow_dirty" == true ]]; then
-  file_list="$(mktemp)"
-  trap 'rm -f "$file_list"' EXIT
-  git ls-files --cached --others --exclude-standard |
-    LC_ALL=C sort -u |
-    awk '
-      !/^dist\// && !/^dist-source\// && !/^node_modules\// &&
-      !/^\.claude\// && $0 != ".agents" && $0 != ".gemini" &&
-      $0 != "AGENTS.md" && $0 != "CLAUDE.md" && $0 != "GEMINI.md" &&
-      $0 != "pnpm-lock.yaml"
-    ' > "$file_list"
-  tar --create --gzip --file "$archive" --owner=0 --group=0 --numeric-owner \
-    --mtime='UTC 2020-01-01' --sort=name --files-from="$file_list"
+  temp_index_dir="$(mktemp -d)"
+  trap 'rm -rf "$temp_index_dir"' EXIT
+  GIT_INDEX_FILE="$temp_index_dir/index" git read-tree HEAD
+  GIT_INDEX_FILE="$temp_index_dir/index" git add --all
+  source_tree="$(GIT_INDEX_FILE="$temp_index_dir/index" git write-tree)"
+  git archive --format=zip --output="$archive" "$source_tree"
 else
-  git archive --format=tar.gz --output="$archive" HEAD
+  git archive --format=zip --output="$archive" HEAD
 fi
 
-contents="$(tar -tzf "$archive")"
+contents="$(unzip -Z1 "$archive")"
 bad_entries="$(printf '%s\n' "$contents" | awk '
   /(^|\/)node_modules(\/|$)|(^|\/)dist(\/|$)|(^|\/)dist-source(\/|$)|(^|\/)\.recyclebin(\/|$)/ { print; next }
   /(^|\/)\.env/ && $0 !~ /(^|\/)\.env\.example$/ { print; next }

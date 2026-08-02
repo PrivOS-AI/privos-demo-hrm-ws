@@ -1,4 +1,4 @@
-# Demo HR Management
+# PrivOS Demo MCP App
 
 **Tagline:** A complete, copyable PrivOS MCP app—from first workspace call to licensed Pro export.
 
@@ -7,7 +7,7 @@ marketplace-ready reference app with minimum justified permissions.
 
 ## Long description
 
-Demo HR Management is both a useful workspace demo and the canonical reference for building a PrivOS
+PrivOS Demo MCP App is both a useful HR workspace demo and the canonical reference for building a PrivOS
 MCP app. Browse and edit structured HR records, work with room files, run AI chat and poem workflows,
 inspect verified identity, synchronize skills and wake the workspace sandbox.
 

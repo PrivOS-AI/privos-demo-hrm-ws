@@ -1,9 +1,9 @@
 {
-  "name": "ai.privos.demo-hr-management-ws",
+  "name": "ai.privos.mcp-app-demo",
   "version": "1.0.0",
   "private": false,
-  "description": "Reference PrivOS MCP app demonstrating direct and relay transports, scoped workspace APIs, and license tiers",
-  "title": "Demo HR Management",
+  "description": "Reference PrivOS MCP app demonstrating HR workflows, scoped workspace APIs, AI and sandbox controls, and license-aware features.",
+  "title": "PrivOS Demo MCP App",
   "icon": "/public/icon.svg",
   "scopes": ["basic:information", "lists:read", "lists:write", "files:read", "files:write", "sandbox:skills:use", "sandbox:botkey:push", "sandbox:wake", "sandbox:ai-chat", "sandbox:ai-chat:write"],
   "homepage": "https://privos.ai",
@@ -35,7 +35,7 @@
   "keywords": ["hr", "management", "mcp", "demo", "privos", "relay", "websocket"],
   "repository": {
     "type": "git",
-    "url": "https://github.com/PrivOS-AI/privos-demo-hrm-ws"
+    "url": "https://github.com/PrivOS-AI/privos-mcp-app-demo"
   },
   "engines": {
     "node": ">=22.0.0"
@@ -49,8 +49,8 @@
     "test": "vitest run",
     "preflight": "tsx scripts/preflight.ts",
     "package": "bash scripts/package-source.sh",
-    "docker:build": "docker build -t privos-demo-hrm-ws:local .",
-    "docker:run": "docker run --rm --read-only --cap-drop ALL --security-opt no-new-privileges --pids-limit 100 --tmpfs /tmp -e PORT=3000 privos-demo-hrm-ws:local"
+    "docker:build": "docker build -t privos-mcp-app-demo:local .",
+    "docker:run": "docker run --rm --read-only --cap-drop ALL --security-opt no-new-privileges --pids-limit 100 --tmpfs /tmp -e PORT=3000 privos-mcp-app-demo:local"
   },
   "dependencies": {
     "dotenv": "^17.3.1",

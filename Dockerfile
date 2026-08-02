@@ -10,6 +10,7 @@ FROM node:22-alpine AS runtime
 ENV NODE_ENV=production PRIVOS_TRANSPORT=direct PORT=3000
 WORKDIR /app
 COPY --from=build --chown=node:node /app/package.json /app/package-lock.json ./
+COPY --from=build --chown=node:node /app/privos-app.json ./privos-app.json
 COPY --from=build --chown=node:node /app/node_modules ./node_modules
 COPY --from=build --chown=node:node /app/src ./src
 COPY --from=build --chown=node:node /app/dist ./dist

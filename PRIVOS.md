@@ -17,8 +17,8 @@ deployment default; relay WebSocket is for local development. Both use
 
 ## Invariants
 
-- `package.json` is authoritative for parser-supported manifest metadata.
-- Do not add manifest fields outside `HUB_MANIFEST_FIELDS` without hub parser support.
+- `privos-app.json` is the canonical Marketplace/runtime manifest; package identity fields mirror it.
+- Do not add manifest fields outside `MARKETPLACE_MANIFEST_FIELDS` without Portal parser support.
 - Every declared scope needs a real annotated call site and a `SCOPES.md` justification.
 - License lapse degrades to Free and never destroys data.
 - Never package or build from a working-tree sweep; never commit secrets.

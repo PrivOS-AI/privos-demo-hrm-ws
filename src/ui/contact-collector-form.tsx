@@ -1,5 +1,5 @@
 /**
- * Demo HR Management — select a list, view items, add new records with custom fields.
+ * PrivOS Demo MCP App — select a list, view items, add new records with custom fields.
  * Dynamically renders fields based on the selected list's fieldDefinitions.
  */
 import { useState, useEffect, useCallback } from 'react';
@@ -267,7 +267,7 @@ export default function HRManagementDashboard() {
 
   return (
     <div className="container">
-      <h1>Demo HR Management</h1>
+      <h1>PrivOS Demo MCP App</h1>
 
       {/* List selector + create */}
       <div className="form-group">

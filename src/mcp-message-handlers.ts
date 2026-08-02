@@ -7,7 +7,7 @@
 import fs from 'fs';
 import path from 'path';
 
-import _pkg from '../package.json';
+import _pkg from '../privos-app.json';
 import { verifyPrivosUser } from './verify-privos-user';
 import { createLicenseGuard } from './license';
 const pkg = _pkg as Record<string, any>;
@@ -16,7 +16,7 @@ const TOOL_NAME = 'hr_management_dashboard';
 // backend-validated identity so the frontend can prove who the requester is.
 const WHOAMI_TOOL = 'hr_whoami';
 const BULK_EXPORT_TOOL = 'hr_bulk_export';
-const UI_RESOURCE_URI = 'ui://demo-hr-management/form.html';
+const UI_RESOURCE_URI = 'ui://privos-mcp-app-demo/form.html';
 
 /** Read icon as data URI from package.json icon path */
 function getIconDataUri(): string | undefined {
@@ -81,7 +81,7 @@ export async function handleMcpMessage(method: string, _id: number, params: any)
 				tools: [
 					{
 						name: TOOL_NAME,
-						title: pkg.title || 'Demo HR Management',
+							title: pkg.title || 'PrivOS Demo MCP App',
 						description: pkg.description || 'HR management dashboard',
 						inputSchema: {
 							type: 'object',
@@ -208,7 +208,7 @@ function getDevUiHtml(publicUrl: string): string {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>${pkg.title || 'Demo HR Management'} (dev)</title>
+	  <title>${pkg.title || 'PrivOS Demo MCP App'} (dev)</title>
   <script type="module" src="${base}/@vite/client"></script>
   <script type="module">
     import RefreshRuntime from "${base}/@react-refresh";
@@ -265,7 +265,7 @@ function getInlineUiHtml(): string {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>${pkg.title || 'Demo HR Management'}</title>
+	  <title>${pkg.title || 'PrivOS Demo MCP App'}</title>
   <style>${cssContent}</style>
 </head>
 <body>

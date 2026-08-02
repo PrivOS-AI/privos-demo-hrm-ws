@@ -1,11 +1,11 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { createManifest, HUB_MANIFEST_FIELDS } from '../src/manifest';
+import { createManifest, MARKETPLACE_MANIFEST_FIELDS } from '../src/manifest';
 import pkg from '../package.json';
 import { startHttpServer } from '../src/http-server';
 
-export const PREFLIGHT_RULESET = 'marketplace-validation-mirror/2026-07-26';
+export const PREFLIGHT_RULESET = 'marketplace-validation-mirror/2026-08-02';
 const failures: string[] = [];
 const fail = (message: string, fix: string) => failures.push(`${message}\n  Fix: ${fix}`);
 
@@ -14,13 +14,19 @@ console.log(`PrivOS MCP app preflight (${PREFLIGHT_RULESET})`);
 console.log('NOTICE: these checks mirror the portal rules until the shared marketplace validation module is published.');
 
 const manifest = createManifest();
-if (JSON.stringify(Object.keys(manifest)) !== JSON.stringify(HUB_MANIFEST_FIELDS)) {
-  fail('Manifest contains unsupported or missing fields.', 'Generate it through src/manifest.ts using HUB_MANIFEST_FIELDS.');
+if (JSON.stringify(Object.keys(manifest)) !== JSON.stringify(MARKETPLACE_MANIFEST_FIELDS)) {
+  fail('Manifest contains unsupported or missing fields.', 'Keep privos-app.json aligned with MARKETPLACE_MANIFEST_FIELDS.');
 }
-for (const field of HUB_MANIFEST_FIELDS) {
-  if (JSON.stringify(manifest[field]) !== JSON.stringify(pkg[field])) {
-    fail(`Manifest field "${field}" differs from package.json.`, 'Keep package.json authoritative and regenerate the manifest.');
+for (const field of ['name', 'version', 'title', 'description'] as const) {
+  if (manifest[field] !== pkg[field]) {
+    fail(`Manifest field "${field}" differs from package.json.`, 'Keep package identity fields synchronized with privos-app.json.');
   }
+}
+if (manifest.schemaVersion !== 1 || manifest.kind !== 'mcp-app') {
+  fail('privos-app.json is not a schemaVersion 1 MCP app manifest.', 'Set schemaVersion to 1 and kind to mcp-app.');
+}
+if (manifest.repository !== pkg.repository.url) {
+  fail('Manifest repository differs from package.json.', 'Use the canonical GitHub repository URL in both files.');
 }
 
 if (!pkg.dockerfilePath || !fs.existsSync(path.resolve(pkg.dockerfilePath))) {
@@ -30,13 +36,13 @@ if (!pkg.dockerfilePath || !fs.existsSync(path.resolve(pkg.dockerfilePath))) {
 const scopeDocs = fs.existsSync('SCOPES.md') ? fs.readFileSync('SCOPES.md', 'utf8') : '';
 const uiSources = fs.readdirSync('src/ui').filter((name) => /\.(ts|tsx)$/.test(name))
   .map((name) => fs.readFileSync(path.join('src/ui', name), 'utf8')).join('\n');
-for (const scope of pkg.scopes) {
+for (const scope of manifest.scopes) {
   if (!scopeDocs.includes(`\`${scope}\``) || !uiSources.includes(scope)) {
     fail(`Scope "${scope}" lacks a justification or annotated call site.`, 'Document it in SCOPES.md and reference it beside the real API call, or remove it.');
   }
 }
 
-const tiers = pkg.license?.tiers;
+const tiers = manifest.license?.tiers;
 if (!Array.isArray(tiers) || !tiers.some((tier: any) => tier.id === 'free') || !tiers.some((tier: any) => tier.id === 'pro')) {
   fail('license.tiers is malformed.', 'Declare free and pro tiers with features arrays and numeric limits.');
 } else {
@@ -57,10 +63,13 @@ if (packaged.status !== 0) {
   fail('Safe source packaging failed.', `Resolve the reported unsafe file or archive error:\n${packaged.stderr.trim()}`);
 } else {
   const safeName = pkg.name.replaceAll('/', '-');
-  const archive = `dist-source/${safeName}-${pkg.version}.tar.gz`;
-  const listing = spawnSync('tar', ['-tzf', archive], { encoding: 'utf8' });
+  const archive = `dist-source/${safeName}-${pkg.version}.zip`;
+  const listing = spawnSync('unzip', ['-Z1', archive], { encoding: 'utf8' });
   if (listing.status !== 0 || !listing.stdout.split('\n').includes(pkg.dockerfilePath)) {
-    fail('The declared Dockerfile is not contained in the packaged archive.', 'Commit Dockerfile and ensure package-source.sh includes it.');
+    fail('The declared Dockerfile is not contained in the packaged ZIP.', 'Commit Dockerfile and ensure package-source.sh includes it.');
+  }
+  if (!listing.stdout.split('\n').includes('privos-app.json')) {
+    fail('privos-app.json is not at the ZIP root.', 'Commit the canonical manifest at the repository root.');
   }
   if (fs.statSync(archive).size > 200 * 1024 * 1024) {
     fail('The packaged archive exceeds 200 MiB.', 'Remove generated assets or dependencies from the source archive.');
