@@ -28,3 +28,5 @@ in one commit.
 
 - Credential backups, recycle-bin state, build output and local dependencies are excluded from source
   archives and Docker contexts.
+- The production image removes the unused npm/npx package-management toolchain and its transitive
+  attack surface after the build stage.

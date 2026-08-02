@@ -29,5 +29,6 @@ jobs:
             curl --fail http://127.0.0.1:3000/.well-known/mcp/manifest.json && break
             sleep 1
           done
+          docker exec reference-app sh -c '! command -v npm && ! command -v npx'
           curl --fail --json '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}' \
             http://127.0.0.1:3000/mcp
