@@ -46,7 +46,7 @@ fi
 contents="$(unzip -Z1 "$archive")"
 bad_entries="$(printf '%s\n' "$contents" | awk '
   /(^|\/)node_modules(\/|$)|(^|\/)dist(\/|$)|(^|\/)dist-source(\/|$)|(^|\/)\.recyclebin(\/|$)/ { print; next }
-  /(^|\/)\.env/ && $0 !~ /(^|\/)\.env\.example$/ { print; next }
+  /(^|\/)\.env/ { print; next }
   /(^|\/)id_rsa/ || /\.pem$/ || /\.key$/ || tolower($0) ~ /credentials/ { print }
 ')"
 if [[ -n "$bad_entries" ]]; then
