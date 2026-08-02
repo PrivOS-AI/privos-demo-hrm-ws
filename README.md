@@ -145,3 +145,10 @@ attribution stays separate without changing the listing identity.
 
 See [.env.example](.env.example). No secret belongs in Git. Architecture and maintainer commands are
 summarized in [PRIVOS.md](PRIVOS.md).
+
+## Privacy and terms
+
+Marketplace use is governed by the app-specific [Privacy Notice](PRIVACY.md) and
+[Terms of Use](TERMS.md). Security or support questions can be filed through
+[GitHub Issues](https://github.com/PrivOS-AI/privos-mcp-app-demo/issues) or sent to
+`dev@privos.ai`.

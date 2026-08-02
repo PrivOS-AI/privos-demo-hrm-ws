@@ -15,6 +15,7 @@ in one commit.
 - Canonical root `privos-app.json`, scope justifications and Free/Pro license example.
 - Preflight, Vitest coverage, GitHub Actions and hardened container smoke test.
 - Publisher walkthrough and complete listing launch kit.
+- App-specific Marketplace privacy notice and terms of use.
 
 ### Changed
 
