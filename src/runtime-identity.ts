@@ -1,8 +1,9 @@
 import {
   WorkloadIdentityClient,
+  verifyClusterDispatchAssertionV3,
   verifyDispatchAssertion,
   type EffectiveCapabilities,
-  type VerifiedDispatchAssertion,
+  type VerifiedDispatchActor,
 } from '@privos_ai/app-server/workload';
 import { lintManifest } from '@privos_ai/app-server/manifest-tools';
 
@@ -96,10 +97,31 @@ export async function getEffectiveCapabilities(): Promise<EffectiveCapabilities>
   return capabilities;
 }
 
-export async function verifyInboundDispatch(body: unknown, compact: string | undefined): Promise<VerifiedDispatchAssertion | undefined> {
+export type VerifiedInboundDispatch = Readonly<{
+  jti: string;
+  issuedAt: number;
+  expiresAt: number;
+  actor?: VerifiedDispatchActor;
+  roomId?: string;
+}>;
+
+export async function verifyInboundDispatch(body: unknown, compact: string | undefined): Promise<VerifiedInboundDispatch | undefined> {
   if (!productionMode) return undefined;
   if (!compact) throw new Error('DISPATCH_ASSERTION_REQUIRED');
-  return verifyDispatchAssertion({ compact, body, context: await identity.brokerContext() });
+  const context = await identity.brokerContext();
+  // A node that attested an App Library generation routes dispatch through its
+  // cluster, and that assertion binds the generation rather than a replica. It
+  // carries no actor: the Hub authorizes the call, it does not name the caller.
+  if (context.binding.generation) {
+    const verified = verifyClusterDispatchAssertionV3({ compact, body, context });
+    return Object.freeze({
+      jti: verified.jti,
+      issuedAt: verified.issuedAt,
+      expiresAt: verified.expiresAt,
+      ...(verified.roomId ? { roomId: verified.roomId } : {}),
+    });
+  }
+  return verifyDispatchAssertion({ compact, body, context });
 }
 
 export function manifestSecurityReport() {

@@ -4,6 +4,24 @@ This project follows [Semantic Versioning](https://semver.org/). Each marketplac
 must equal `privos-app.json.version` and `package.json.version`; change both release notes and metadata
 in one commit.
 
+## [2.1.1] - 2026-08-04
+
+### Fixed
+
+- The app now pairs when PrivOS runs it as an App Library generation. A node
+  running a generation attests the generation rather than a standalone replica,
+  and the previous runtime SDK rejected that attestation outright, so `/ready`
+  stayed 503 with `BROKER_RESPONSE_INVALID` and every tool call was refused.
+- Tool calls the Hub routes through a cluster are now verified against the
+  attested generation. That assertion carries generation affinity, which
+  neither dispatch verifier in the previous SDK accepted.
+
+### Changed
+
+- Runtime SDK `@privos_ai/app-server` 0.2.1 → 0.3.1.
+- A dispatch verified through the cluster reports no actor: the Hub authorizes
+  the call without naming the caller, so `whoami` returns no subject there.
+
 ## [2.1.0] - 2026-08-04
 
 ### Changed
