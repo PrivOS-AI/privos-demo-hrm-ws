@@ -4,6 +4,21 @@ This project follows [Semantic Versioning](https://semver.org/). Each marketplac
 must equal `privos-app.json.version` and `package.json.version`; change both release notes and metadata
 in one commit.
 
+## [2.1.0] - 2026-08-04
+
+### Changed
+
+- Declared the schema-v3 lifecycle manifest, including an empty
+  `resourceManifestTemplate`: this app is stateless and owns no publisher
+  resource outside the platform-managed ones the control plane injects.
+- The manifest lint, preflight and runtime readiness checks now accept every
+  supported schema version instead of pinning to v2.
+
+### Notes
+
+- The `roomId` argument of `hr_management_dashboard` is a runtime tool
+  parameter. Installation stays roomless; a room is chosen later, per room.
+
 ## [2.0.0] - 2026-08-02
 
 ### Changed

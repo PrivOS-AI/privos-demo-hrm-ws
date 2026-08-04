@@ -4,6 +4,7 @@ export const MARKETPLACE_MANIFEST_FIELDS = [
   'schemaVersion', 'kind', 'name', 'version', 'title', 'description', 'icon',
   'author', 'homepage', 'repository', 'permissions', 'dataPolicy', 'availabilityTier',
   'tools', 'port', 'resources', 'volumes', 'stateless', 'license',
+  'resourceManifestTemplate',
 ] as const;
 
 export const HUB_MANIFEST_FIELDS = MARKETPLACE_MANIFEST_FIELDS;

@@ -4,7 +4,7 @@ import {
   type EffectiveCapabilities,
   type VerifiedDispatchAssertion,
 } from '@privos_ai/app-server/workload';
-import { lintManifestV2 } from '@privos_ai/app-server/manifest-tools';
+import { lintManifest } from '@privos_ai/app-server/manifest-tools';
 
 import { createManifest } from './manifest';
 
@@ -25,11 +25,11 @@ const productionMode = process.env.PRIVOS_RUNTIME_MODE === 'production'
   || (process.env.PRIVOS_RUNTIME_MODE !== 'development' && process.env.NODE_ENV === 'production');
 const mode: DemoRuntimeMode = productionMode ? 'production-workload' : 'development-compatibility';
 const identity = new WorkloadIdentityClient();
-const manifestLint = lintManifestV2(createManifest());
+const manifestLint = lintManifest(createManifest());
 let capabilities: EffectiveCapabilities = identity.peekEffectiveCapabilities();
 let identityPaired = false;
 let activeAuthorization = false;
-let reason: string | undefined = manifestLint.valid ? undefined : 'MANIFEST_V2_INVALID';
+let reason: string | undefined = manifestLint.valid ? undefined : 'MANIFEST_INVALID';
 let bootstrapTimer: ReturnType<typeof setInterval> | undefined;
 
 identity.onCapabilitiesChanged((next) => {
@@ -63,7 +63,7 @@ export function startRuntimeIdentity(): void {
   if (!productionMode) {
     identityPaired = false;
     activeAuthorization = manifestLint.valid;
-    reason = manifestLint.valid ? undefined : 'MANIFEST_V2_INVALID';
+    reason = manifestLint.valid ? undefined : 'MANIFEST_INVALID';
     return;
   }
   void attemptProductionBootstrap();
