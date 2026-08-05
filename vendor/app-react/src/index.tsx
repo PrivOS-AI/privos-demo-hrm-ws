@@ -21,6 +21,14 @@ export interface McpApp {
     folderId?: string; enableEmbedding?: boolean; duplicateAction?: 'replace' | 'keep_both' | 'cancel';
   }): Promise<any>;
   onhostcontextchanged?: (context: any) => void;
+  /** Claim the hub's floating AI chat launcher for this iframe mount. */
+  registerChatSurface(owns: boolean): Promise<{ ok: true; supported: boolean }>;
+  /** Report whether the app's own chat window is showing. */
+  setChatOpen(open: boolean): Promise<{ ok: true }>;
+  /** Host (re)initialized this mount — per-mount state such as chat ownership must be reclaimed. */
+  onhostinitialize?: (() => void) | undefined;
+  onhostchatopen?: (() => void) | undefined;
+  onhostchatclose?: ((reason: string) => void) | undefined;
 }
 
 const AppContext = createContext<McpApp | null>(null);
@@ -29,6 +37,9 @@ function createDefaultApp(): McpApp {
   let connected = false;
   let nextId = 1;
   let contextHandler: ((context: any) => void) | undefined;
+  let initializeHandler: (() => void) | undefined;
+  let chatOpenHandler: (() => void) | undefined;
+  let chatCloseHandler: ((reason: string) => void) | undefined;
   const pending = new Map<number, { resolve(value: any): void; reject(error: Error): void }>();
   const onMessage = (event: MessageEvent) => {
     if (event.source !== window.parent) return;
@@ -40,6 +51,16 @@ function createDefaultApp(): McpApp {
       data.error ? call.reject(new Error(data.error.message)) : call.resolve(data.result);
     }
     if (data.method === 'HOST_CONTEXT_CHANGED') contextHandler?.(data.params);
+    // Host-initiated notifications carry no id — same branch shape as the published SDK.
+    if (data.id === undefined) {
+      try {
+        if (data.method === 'ui/initialize') initializeHandler?.();
+        else if (data.method === 'ui/chat.open') chatOpenHandler?.();
+        else if (data.method === 'ui/chat.close') chatCloseHandler?.(String(data.params?.reason ?? ''));
+      } catch {
+        /* never let a handler throw break the host bridge listener */
+      }
+    }
   };
   const request = (method: string, params: any, timeoutMs = 10000) => {
     const id = nextId++;
@@ -66,7 +87,12 @@ function createDefaultApp(): McpApp {
     callServerTool: (params) => request('tools/call', params),
     rest: (params) => request('host/rest.request', params, params.timeoutMs ?? 10000),
     uploadFile: (params) => request('host/file.upload', params, 60000),
+    registerChatSurface: (owns: boolean) => request('host/chat.register', { owns }, 5000),
+    setChatOpen: (open: boolean) => request('host/chat.state', { open }, 5000),
     set onhostcontextchanged(handler: ((context: any) => void) | undefined) { contextHandler = handler; },
+    set onhostinitialize(handler: (() => void) | undefined) { initializeHandler = handler; },
+    set onhostchatopen(handler: (() => void) | undefined) { chatOpenHandler = handler; },
+    set onhostchatclose(handler: ((reason: string) => void) | undefined) { chatCloseHandler = handler; },
   };
 }
 
@@ -156,4 +182,64 @@ export function usePrivosTool<T = any>(toolName: string, args: Record<string, an
   }, [app, toolName, argsKey]);
   useEffect(() => { void refetch(); }, [refetch]);
   return { data, loading, error, refetch };
+}
+
+export interface UseAppChatSurfaceOptions {
+  onOpen?: () => void;
+  onClose?: (reason?: string) => void;
+}
+
+/**
+ * Take over the hub's AI chat launcher so this app renders its own chat window.
+ * `supported` is false where the host has no launcher to hand over (standalone page,
+ * sidebar panel) — draw your own entry point there.
+ */
+export function useAppChatSurface(options: UseAppChatSurfaceOptions = {}) {
+  const app = usePrivosApp();
+  const [resolved, setResolved] = useState(false);
+  const [supported, setSupported] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
+  const optionsRef = useRef(options);
+  optionsRef.current = options;
+
+  const reportOpen = useCallback((open: boolean) => {
+    setIsOpen(open);
+    app.setChatOpen(open).catch(() => undefined);
+  }, [app]);
+
+  const open = useCallback(() => reportOpen(true), [reportOpen]);
+  const close = useCallback(() => reportOpen(false), [reportOpen]);
+
+  useEffect(() => {
+    let active = true;
+    const claim = () => {
+      app.registerChatSurface(true).then(
+        (result) => { if (active) { setSupported(Boolean(result?.supported)); setResolved(true); } },
+        () => { if (active) { setSupported(false); setResolved(true); } },
+      );
+    };
+    // The host clears per-mount ownership when it initializes the iframe, which can land after
+    // this effect's first claim (a deferred module script runs before the `load` event).
+    app.onhostinitialize = () => claim();
+    app.onhostchatopen = () => {
+      optionsRef.current.onOpen?.();
+      // Ack promptly or the host's ~1.5s watchdog takes the surface back.
+      reportOpen(true);
+    };
+    app.onhostchatclose = (reason: string) => {
+      optionsRef.current.onClose?.(reason);
+      setIsOpen(false);
+      if (reason !== 'timeout') app.setChatOpen(false).catch(() => undefined);
+    };
+    claim();
+    return () => {
+      active = false;
+      app.onhostinitialize = undefined;
+      app.onhostchatopen = undefined;
+      app.onhostchatclose = undefined;
+      app.registerChatSurface(false).catch(() => undefined);
+    };
+  }, [app, reportOpen]);
+
+  return { resolved, supported, isOpen, open, close };
 }

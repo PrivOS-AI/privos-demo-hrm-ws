@@ -11,6 +11,7 @@ import SandboxConnectPanel from './sandbox-connect-panel';
 import WhoamiPanel from './whoami-panel';
 import InfoPanel from './info-panel';
 import LicensePanel from './license-panel';
+import AppOwnedChatPanel from './app-owned-chat-panel';
 
 type Tab = 'identity' | 'info' | 'records' | 'license' | 'files' | 'chat' | 'poem' | 'history' | 'skills' | 'sandbox';
 
@@ -81,6 +82,9 @@ function ThemedApp() {
           {tab === 'sandbox' && <SandboxConnectPanel />}
         </>
       )}
+
+      {/* Overlays every tab: the hub launcher opens this app's own chat window. */}
+      <AppOwnedChatPanel />
     </ThemeProvider>
   );
 }
