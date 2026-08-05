@@ -12,7 +12,7 @@
  * Each request runs a fresh session so every command yields a standalone poem.
  */
 import { useState, useCallback } from 'react';
-import { usePrivosApp, usePrivosContext } from '@privos/app-react';
+import { usePrivosApp, usePrivosContext } from '@privos_ai/app-react';
 import { restCall } from './privos-rest';
 
 interface ServerMessage {

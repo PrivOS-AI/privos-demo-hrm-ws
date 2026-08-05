@@ -9,7 +9,7 @@
  * history is the "live" conversation, the rest are older chats.
  */
 import { useState, useEffect, useCallback } from 'react';
-import { usePrivosApp, usePrivosContext } from '@privos/app-react';
+import { usePrivosApp, usePrivosContext } from '@privos_ai/app-react';
 import { restCall } from './privos-rest';
 import MarkdownBlocks from './markdown-blocks';
 

@@ -9,7 +9,7 @@
  * Every call runs as the logged-in user and is gated server-side by the app's
  * exact installation grant, so no bespoke tools are needed.
  */
-import type { McpApp, RestRequestParams } from '@privos/app-react';
+import type { McpApp, RestRequestParams } from '@privos_ai/app-react';
 
 export class OptionalFeatureUnavailableError extends Error {
   readonly code = 'OPTIONAL_PERMISSION_NOT_GRANTED';

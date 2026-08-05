@@ -10,7 +10,7 @@
  * shape, not as a finished design.
  */
 import { useState } from 'react';
-import { useAppChatSurface } from '@privos/app-react';
+import { useAppChatSurface } from '@privos_ai/app-react';
 import AiChatPanel from './ai-chat-panel';
 
 export default function AppOwnedChatPanel() {

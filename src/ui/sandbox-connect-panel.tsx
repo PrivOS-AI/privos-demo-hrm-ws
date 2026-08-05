@@ -18,7 +18,7 @@
  * `vmState` is a pure read — it never wakes the VM.
  */
 import { useState, useEffect, useCallback } from 'react';
-import { usePrivosApp, usePrivosContext } from '@privos/app-react';
+import { usePrivosApp, usePrivosContext } from '@privos_ai/app-react';
 import { restCall } from './privos-rest';
 
 interface BotKeyStatus {

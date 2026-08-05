@@ -4,6 +4,29 @@ This project follows [Semantic Versioning](https://semver.org/). Each marketplac
 must equal `privos-app.json.version` and `package.json.version`; change both release notes and metadata
 in one commit.
 
+## [2.2.0] - 2026-08-05
+
+### Added
+
+- An app-owned AI chat panel. The app tells the Hub it renders its own chat
+  window, so the Hub's floating launcher opens this panel instead of the Hub's
+  own chat and hides itself while the panel is open; minimizing hands the
+  launcher back. Publishers who ship their own chat design can copy
+  `src/ui/app-owned-chat-panel.tsx` as the reference implementation.
+
+### Changed
+
+- Both PrivOS SDKs now install from the npm registry (`@privos_ai/app-server`
+  ^0.3.1, `@privos_ai/app-react` ^0.3.0) instead of tarballs and a hand-copied
+  React SDK under `vendor/`. Publishers cloning this reference no longer inherit
+  local-path dependencies that a marketplace submission cannot resolve.
+
+### Requires
+
+- A Hub that answers the `host/chat.register` bridge handshake. On an older Hub
+  the panel reports the surface as unsupported and the app falls back to its own
+  entry point, so the app stays functional.
+
 ## [2.1.1] - 2026-08-04
 
 ### Fixed

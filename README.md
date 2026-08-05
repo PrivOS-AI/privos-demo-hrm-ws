@@ -120,7 +120,7 @@ This creates `dist-source/ai.privos.mcp-app-demo-2.0.0.zip` plus a SHA-256 prove
 Git-tracked source. It rejects dirty trees by default, credential-like files, `.env`, dependencies,
 build output, and archives over 200 MiB. `--allow-dirty` is for local inspection only.
 
-The multi-stage image installs only vendored/pinned package inputs, runs as `node`, supports a
+The multi-stage image installs only lockfile-pinned package inputs, runs as `node`, supports a
 read-only root filesystem, and needs no production credential environment variables.
 
 ## Privacy, support, and release

@@ -2,7 +2,7 @@
  * Items table — displays all items with inline edit and delete.
  */
 import { useState, useEffect, useCallback } from 'react';
-import type { McpApp } from '@privos/app-react';
+import type { McpApp } from '@privos_ai/app-react';
 import { restCall } from './privos-rest';
 
 interface FieldDefinition {

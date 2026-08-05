@@ -3,7 +3,7 @@
  * Dynamically renders fields based on the selected list's fieldDefinitions.
  */
 import { useState, useEffect, useCallback } from 'react';
-import { usePrivosApp, usePrivosContext } from '@privos/app-react';
+import { usePrivosApp, usePrivosContext } from '@privos_ai/app-react';
 import ListItemsTable from './list-items-table';
 import { restCall, safeFeatureError } from './privos-rest';
 

@@ -9,7 +9,7 @@
  * Text content is fetched via the same-origin content proxy.
  */
 import { useState, useEffect, useCallback } from 'react';
-import { usePrivosApp, usePrivosContext } from '@privos/app-react';
+import { usePrivosApp, usePrivosContext } from '@privos_ai/app-react';
 import { restCall, safeFeatureError } from './privos-rest';
 
 interface RoomFile {

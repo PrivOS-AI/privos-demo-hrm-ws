@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { PrivosAppProvider, usePrivosContext } from '@privos/app-react';
+import { PrivosAppProvider, usePrivosContext } from '@privos_ai/app-react';
 import { ThemeProvider, ThemeToggle } from './theme-provider';
 import HRManagementDashboard from './contact-collector-form';
 import FileUploadPanel from './file-upload-panel';

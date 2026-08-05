@@ -12,7 +12,7 @@
  * no bearer/user token passed through the untrusted frontend. The display context from
  * `usePrivosContext()` is shown alongside purely for comparison.
  */
-import { usePrivosContext, usePrivosTool } from '@privos/app-react';
+import { usePrivosContext, usePrivosTool } from '@privos_ai/app-react';
 
 interface WhoamiResult {
   verified: boolean;

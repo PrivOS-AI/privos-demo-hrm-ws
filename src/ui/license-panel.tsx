@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { usePrivosApp } from '@privos/app-react';
+import { usePrivosApp } from '@privos_ai/app-react';
 
 type UiLicense = { tier: 'free' | 'pro'; state?: 'active' | 'lapsed' };
 

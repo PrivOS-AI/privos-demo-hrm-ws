@@ -8,7 +8,7 @@ deployment default; relay WebSocket is for local development. Both use
 
 ## Commands
 
-- `npm ci` — install from lockfile; the app-react SDK is vendored under `vendor/`.
+- `npm ci` — install from lockfile; the PrivOS SDKs come from the npm registry.
 - `npm run dev` — relay transport with live Vite UI.
 - `npm run build` — build UI, generate `dist/manifest.json`, validate schema v2, and print canonical hashes.
 - `npm run typecheck && npm test && npm run preflight` — required verification.

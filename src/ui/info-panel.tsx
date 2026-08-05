@@ -7,7 +7,7 @@
  * tool response (roomId, roomSlug, appId, appUrl) into the context object.
  */
 import { useState } from 'react';
-import { usePrivosContext } from '@privos/app-react';
+import { usePrivosContext } from '@privos_ai/app-react';
 
 export default function InfoPanel() {
   // roomSlug/appId/appUrl are supplied by mcpapp.context.get (basic:information scope);
