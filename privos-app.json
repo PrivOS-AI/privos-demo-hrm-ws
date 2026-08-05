@@ -2,7 +2,7 @@
   "schemaVersion": 3,
   "kind": "mcp-app",
   "name": "ai.privos.mcp-app-demo",
-  "version": "2.2.0",
+  "version": "2.3.0",
   "title": "PrivOS Demo MCP App",
   "description": "Reference PrivOS MCP app demonstrating HR workflows, scoped workspace APIs, AI and sandbox controls, and license-aware features.",
   "icon": "/public/icon.svg",
@@ -186,5 +186,29 @@
       }
     ]
   },
+  "env": [
+    {
+      "key": "HRM_COMPANY_NAME",
+      "description": "Company name shown in the HR dashboard header.",
+      "required": true,
+      "secret": false,
+      "example": "Acme GmbH",
+      "default": null
+    },
+    {
+      "key": "HRM_LOCALE",
+      "description": "BCP-47 locale used for date and currency formatting.",
+      "required": false,
+      "secret": false,
+      "example": "de-DE",
+      "default": "en-US"
+    },
+    {
+      "key": "HRM_SMTP_PASSWORD",
+      "description": "Password for the SMTP account payslip mail is sent through.",
+      "required": false,
+      "secret": true
+    }
+  ],
   "resourceManifestTemplate": []
 }

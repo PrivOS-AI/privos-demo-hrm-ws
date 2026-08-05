@@ -123,6 +123,47 @@ build output, and archives over 200 MiB. `--allow-dirty` is for local inspection
 The multi-stage image installs only lockfile-pinned package inputs, runs as `node`, supports a
 read-only root filesystem, and needs no production credential environment variables.
 
+## Environment configuration
+
+`privos-app.json` declares the values an operator supplies from Hub **Admin → Apps → Settings →
+Environment**. The declaration is part of the digest-pinned manifest, so it is fixed per published
+version; the Portal validates it at submission and the reviewer sees every secret the app asks for.
+
+| Key | Required | Secret | Purpose |
+|-----|----------|--------|---------|
+| `HRM_COMPANY_NAME` | yes | no | Company name in the dashboard header. |
+| `HRM_LOCALE` | no | no | BCP-47 locale for dates and currency; the app defaults to `en-US`. |
+| `HRM_SMTP_PASSWORD` | no | **yes** | SMTP password for payslip mail. |
+
+Two rules this app demonstrates, and every publisher should follow:
+
+- **A required value never blocks installation.** The operator fills it in afterwards, so the app
+  must start and report its own unconfigured state. `hr_whoami` returns `companyName: null` rather
+  than refusing to run.
+- **A secret is reported, never printed.** `hr_whoami` returns `smtpPasswordSet: true|false`. The
+  value would otherwise travel through a room, which is precisely what the platform's write-only
+  storage exists to prevent.
+
+Applying values restarts the app container. The environment is read at start like any process
+environment; there is no runtime config-fetch API.
+
+### Variables the platform injects
+
+`hr_whoami` also echoes what PrivOS injects, read through the SDK's `getPlatformContext()`:
+
+```ts
+import { getPlatformContext, publicUrlFor } from '@privos_ai/app-server';
+
+const { publicUrl, accessMode } = getPlatformContext();
+const iconUrl = publicUrlFor('/public/icon.svg');
+```
+
+`PRIVOS_PUBLIC_URL` is this app's own public origin and `PRIVOS_ACCESS_MODE` is `managed-runtime`
+or `publisher-hosted`. Tool calls and interface requests do **not** arrive on the public origin —
+those ride the signed broker dispatch on `/mcp`. Use it for public static media, webhook callbacks,
+and OAuth redirect URIs. Both helpers are undefined-safe, so the app still runs where nothing is
+injected.
+
 ## Privacy, support, and release
 
 Marketplace review/build source remains publisher-confidential; buyer workspaces receive the

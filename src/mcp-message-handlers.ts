@@ -8,6 +8,8 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'node:url';
 
+import { getPlatformContext, publicUrlFor } from '@privos_ai/app-server';
+
 import _pkg from '../privos-app.json';
 import { createLicenseGuard } from './license';
 const pkg = _pkg as Record<string, any>;
@@ -180,7 +182,28 @@ async function handleWhoami(actor?: { subject: string; username?: string; roomId
 		userId: actor.subject,
 		roomId: actor.roomId,
 		message: `Backend verified this request came from ${username} (${actor.subject}).`,
+		platform: describePlatformEnvironment(),
 	});
+}
+
+/**
+ * What the platform injected and what the operator configured — reported so an
+ * end-to-end check can prove the environment actually reached the container.
+ *
+ * A secret is reported as SET or UNSET and never by value: this output travels
+ * through the room, so printing the SMTP password here would be exactly the
+ * leak the whole write-only path exists to prevent.
+ */
+function describePlatformEnvironment(): Record<string, unknown> {
+	const platform = getPlatformContext();
+	return {
+		publicUrl: platform.publicUrl ?? null,
+		accessMode: platform.accessMode ?? null,
+		mediaUrlExample: publicUrlFor('/public/icon.svg') ?? null,
+		companyName: process.env.HRM_COMPANY_NAME ?? null,
+		locale: process.env.HRM_LOCALE ?? 'en-US',
+		smtpPasswordSet: Boolean(process.env.HRM_SMTP_PASSWORD),
+	};
 }
 
 /**
