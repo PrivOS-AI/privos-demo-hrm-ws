@@ -4,9 +4,10 @@
  * Flow:
  *   1. The iframe calls our backend tool through the mediated host bridge.
  *   2. Hub privately dispatches the exact JSON-RPC body with a short-lived signed
- *      assertion containing the verified actor.
- *   3. The workload SDK validates signature, binding, expiry, body digest, and
- *      replay before this backend handler sees the actor.
+ *      assertion proving runtime, generation, workspace/room authorization, and
+ *      body binding, alongside a separate caller credential/JWT for human identity.
+ *   3. The workload SDK validates the dispatch assertion and independently verifies
+ *      the Hub-signed caller credential before this backend handler sees the actor.
  *
  * The point of the demo: the backend-verified username is trustworthy even though
  * no bearer/user token passed through the untrusted frontend. The display context from
@@ -31,8 +32,9 @@ export default function WhoamiPanel() {
     <div style={{ padding: 20, maxWidth: 640 }}>
       <h2 style={{ marginTop: 0 }}>Backend-verified identity</h2>
       <p style={{ opacity: 0.75, marginTop: -6 }}>
-        The username below is carried in a body-bound Hub dispatch assertion verified by the app
-        <strong> backend</strong>, not claimed by the frontend.
+        The human actor below is independently verified by the <strong>backend</strong> from a separate
+        Hub-signed caller credential/JWT, not claimed by the frontend. The dispatch assertion separately
+        proves runtime, generation, workspace/room authorization, and request-body binding.
       </p>
 
       {loading && <div style={box('#334', '#eef')}>Verifying with backend&hellip;</div>}
@@ -63,7 +65,7 @@ export default function WhoamiPanel() {
           <div>userId: {clientClaimedUserId ?? '—'}</div>
           <div style={{ marginTop: 6, opacity: 0.7 }}>
             These values are safe for display and UI state. Backend authorization uses only the
-            verified dispatch actor above.
+            verified caller actor above.
           </div>
         </div>
       </details>
