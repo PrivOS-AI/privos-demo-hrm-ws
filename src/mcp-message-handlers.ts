@@ -15,8 +15,9 @@ import { createLicenseGuard } from './license';
 const pkg = _pkg as Record<string, any>;
 const moduleDir = path.dirname(fileURLToPath(import.meta.url));
 const TOOL_NAME = 'hr_management_dashboard';
-// Pure data (no UI) tool: returns the actor carried by the body-bound, Hub-signed
-// private dispatch assertion verified before the request reaches this handler.
+// Pure data (no UI) tool: returns the actor independently verified from the
+// separate Hub-signed caller credential before this handler runs. The dispatch
+// assertion authorizes runtime/room/generation context, not human identity.
 const WHOAMI_TOOL = 'hr_whoami';
 const BULK_EXPORT_TOOL = 'hr_bulk_export';
 const UI_RESOURCE_URI = 'ui://privos-mcp-app-demo/form.html';
@@ -103,7 +104,7 @@ export async function handleMcpMessage(
 						name: WHOAMI_TOOL,
 						title: 'Who am I (verified)',
 						description:
-							"Return the actor authenticated by the Hub's body-bound private dispatch assertion.",
+							'Return the actor independently verified from the separate Hub-signed caller credential/JWT.',
 						inputSchema: {
 							type: 'object',
 							properties: {},
@@ -168,9 +169,10 @@ export async function handleMcpMessage(
 /**
  * Backend handler for the `hr_whoami` tool.
  *
- * Production identity comes from the body-bound Hub dispatch assertion verified
- * by the workload SDK before this handler runs. The iframe never receives or
- * forwards a bearer/user token.
+ * Production human identity comes from the separate Hub-signed caller
+ * credential/JWT independently verified by the workload SDK. The dispatch
+ * assertion authorizes runtime/room/generation context, not the actor. The
+ * iframe never receives or forwards a bearer/user token.
  */
 async function handleWhoami(actor?: VerifiedActor): Promise<any> {
 	const wrap = (obj: Record<string, any>) => ({ content: [{ type: 'text', text: JSON.stringify(obj) }] });

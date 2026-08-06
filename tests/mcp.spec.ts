@@ -8,9 +8,11 @@ describe('JSON-RPC handlers', () => {
     expect(listed.tools.map((tool: any) => tool.name)).toContain('hr_bulk_export');
     const whoami = listed.tools.find((tool: any) => tool.name === 'hr_whoami');
     expect(whoami.inputSchema).toEqual({ type: 'object', properties: {} });
+    expect(whoami.description).toContain('separate Hub-signed caller credential/JWT');
+    expect(whoami.description).not.toContain('dispatch assertion');
   });
 
-  it('uses only a verified dispatch actor for backend identity', async () => {
+  it('uses only the separately verified caller actor for backend identity', async () => {
     const unverified = await handleMcpMessage('tools/call', 3, { name: 'hr_whoami', arguments: {} });
     expect(JSON.parse(unverified.content[0].text)).toMatchObject({ verified: false });
     const verified = await handleMcpMessage(
