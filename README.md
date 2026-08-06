@@ -11,11 +11,13 @@ token. App Cluster mounts a per-installation Unix socket. `@privos_ai/app-server
 ephemeral P-256 DPoP key in memory, obtains short-lived sender-constrained workload tokens through
 the socket, and refreshes them without writing credentials to disk or environment variables.
 
-Hub-to-app `/mcp` requests travel through private Cluster dispatch and carry a short-lived signed
-assertion bound to the request body, installation, replica, receipt hash, and permission epoch.
-The backend actor for `hr_whoami` comes from that verified assertion. The iframe receives only
-non-secret host context and uses `app.rest()`, `app.uploadFile()`, and MCP tools through the Hub
-bridge as the current user.
+Hub-to-app `/mcp` requests enter through the App SDK's canonical HTTP ingress. For a managed v3
+generation it verifies `X-PrivOS-Dispatch-Assertion` against the broker-attested generation, then
+independently verifies the separate Hub RS256 caller credential against the broker-bound Hub JWKS,
+app audience, asserted user id, and signed room. The assertion authorizes the exact runtime and
+room child-binding; the separate JWT proves the human returned by `hr_whoami`. The iframe receives
+neither credential and uses `app.rest()`, `app.uploadFile()`, and MCP tools through the Hub bridge
+as the current user.
 
 Production accepts these non-secret values from the platform:
 
@@ -60,6 +62,11 @@ Development compatibility reports manifest-verified readiness without a broker. 
 `/health` only proves the process is alive; `/ready` returns 200 only after the manifest is valid,
 workload identity is paired, and the current receipt/epoch is active. A public or unsigned
 production `POST /mcp` returns 403.
+
+Backend room-to-Hub calls derive a request-only client with
+`runtimeIdentityClient.forRoom(context)`. The demo's focused reference test proves that token
+issuance receives the verified `authorizationBindingId` and that the resulting request can target
+only a Hub-relative path with one exact permission scope. The client exposes no raw token getter.
 
 ## Permission contract
 

@@ -1,10 +1,9 @@
 import {
-  WorkloadIdentityClient,
-  verifyClusterDispatchAssertionV3,
-  verifyDispatchAssertion,
+  getWorkloadIdentityClient,
   type EffectiveCapabilities,
-  type VerifiedDispatchActor,
+  type RoomBoundWorkloadClient,
 } from '@privos_ai/app-server/workload';
+import type { ToolCallContext } from '@privos_ai/app-server';
 import { lintManifest } from '@privos_ai/app-server/manifest-tools';
 
 import { createManifest } from './manifest';
@@ -25,15 +24,15 @@ export type DemoReadiness = Readonly<{
 const productionMode = process.env.PRIVOS_RUNTIME_MODE === 'production'
   || (process.env.PRIVOS_RUNTIME_MODE !== 'development' && process.env.NODE_ENV === 'production');
 const mode: DemoRuntimeMode = productionMode ? 'production-workload' : 'development-compatibility';
-const identity = new WorkloadIdentityClient();
+export const runtimeIdentityClient = getWorkloadIdentityClient();
 const manifestLint = lintManifest(createManifest());
-let capabilities: EffectiveCapabilities = identity.peekEffectiveCapabilities();
+let capabilities: EffectiveCapabilities = runtimeIdentityClient.peekEffectiveCapabilities();
 let identityPaired = false;
 let activeAuthorization = false;
 let reason: string | undefined = manifestLint.valid ? undefined : 'MANIFEST_INVALID';
 let bootstrapTimer: ReturnType<typeof setInterval> | undefined;
 
-identity.onCapabilitiesChanged((next) => {
+runtimeIdentityClient.onCapabilitiesChanged((next) => {
   capabilities = next;
   identityPaired = ['paired', 'active'].includes(next.status);
   activeAuthorization = next.status === 'active';
@@ -43,17 +42,17 @@ identity.onCapabilitiesChanged((next) => {
 async function attemptProductionBootstrap(): Promise<void> {
   if (!manifestLint.valid) return;
   try {
-    capabilities = await identity.getEffectiveCapabilities({ forceRefresh: !activeAuthorization });
+    capabilities = await runtimeIdentityClient.getEffectiveCapabilities({ forceRefresh: !activeAuthorization });
     identityPaired = ['paired', 'active'].includes(capabilities.status);
     activeAuthorization = capabilities.status === 'active';
     reason = capabilities.reason;
     if (activeAuthorization) {
-      identity.startCapabilityMonitor(30_000);
+      runtimeIdentityClient.startCapabilityMonitor(30_000);
       if (bootstrapTimer) clearInterval(bootstrapTimer);
       bootstrapTimer = undefined;
     }
   } catch (error) {
-    identityPaired = ['paired', 'active'].includes(identity.peekEffectiveCapabilities().status);
+    identityPaired = ['paired', 'active'].includes(runtimeIdentityClient.peekEffectiveCapabilities().status);
     activeAuthorization = false;
     reason = error && typeof error === 'object' && 'code' in error ? String(error.code) : 'WORKLOAD_IDENTITY_PENDING';
   }
@@ -93,35 +92,13 @@ export function runtimeReadiness(): DemoReadiness {
 
 export async function getEffectiveCapabilities(): Promise<EffectiveCapabilities> {
   if (!productionMode) return capabilities;
-  capabilities = await identity.getEffectiveCapabilities();
+  capabilities = await runtimeIdentityClient.getEffectiveCapabilities();
   return capabilities;
 }
 
-export type VerifiedInboundDispatch = Readonly<{
-  jti: string;
-  issuedAt: number;
-  expiresAt: number;
-  actor?: VerifiedDispatchActor;
-  roomId?: string;
-}>;
-
-export async function verifyInboundDispatch(body: unknown, compact: string | undefined): Promise<VerifiedInboundDispatch | undefined> {
-  if (!productionMode) return undefined;
-  if (!compact) throw new Error('DISPATCH_ASSERTION_REQUIRED');
-  const context = await identity.brokerContext();
-  // A node that attested an App Library generation routes dispatch through its
-  // cluster, and that assertion binds the generation rather than a replica. It
-  // carries no actor: the Hub authorizes the call, it does not name the caller.
-  if (context.binding.generation) {
-    const verified = verifyClusterDispatchAssertionV3({ compact, body, context });
-    return Object.freeze({
-      jti: verified.jti,
-      issuedAt: verified.issuedAt,
-      expiresAt: verified.expiresAt,
-      ...(verified.roomId ? { roomId: verified.roomId } : {}),
-    });
-  }
-  return verifyDispatchAssertion({ compact, body, context });
+/** Derive room authority only from the SDK-verified backend tool context. */
+export function roomBoundHub(context: ToolCallContext): RoomBoundWorkloadClient {
+  return runtimeIdentityClient.forRoom(context);
 }
 
 export function manifestSecurityReport() {
@@ -131,5 +108,5 @@ export function manifestSecurityReport() {
 export function stopRuntimeIdentity(): void {
   if (bootstrapTimer) clearInterval(bootstrapTimer);
   bootstrapTimer = undefined;
-  identity.dispose();
+  runtimeIdentityClient.dispose();
 }

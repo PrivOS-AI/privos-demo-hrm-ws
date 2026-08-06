@@ -17,7 +17,13 @@ describe('JSON-RPC handlers', () => {
       'tools/call',
       4,
       { name: 'hr_whoami', arguments: { userToken: 'ignored-browser-secret' } },
-      { actor: { subject: 'user-1', username: 'alice', roomId: 'room-1' } },
+      {
+        transport: 'direct',
+        identityState: 'verified',
+        sessionScope: 'test',
+        roomId: 'room-1',
+        actor: { userId: 'user-1', username: 'alice', roomId: 'room-1', claims: { sub: 'user-1', rid: 'room-1' } },
+      },
     );
     expect(JSON.parse(verified.content[0].text)).toMatchObject({
       verified: true,

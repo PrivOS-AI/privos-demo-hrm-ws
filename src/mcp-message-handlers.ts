@@ -8,7 +8,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'node:url';
 
-import { getPlatformContext, publicUrlFor } from '@privos_ai/app-server';
+import { getPlatformContext, publicUrlFor, type ToolCallContext, type VerifiedActor } from '@privos_ai/app-server';
 
 import _pkg from '../privos-app.json';
 import { createLicenseGuard } from './license';
@@ -55,9 +55,9 @@ export function invalidateUiCache(): void {
 /** Handle an incoming MCP JSON-RPC request and return the result */
 export async function handleMcpMessage(
 	method: string,
-	_id: number,
+	_id: string | number | null,
 	params: any,
-	dispatch?: { actor?: { subject: string; username?: string; roomId?: string } },
+	context?: ToolCallContext,
 ): Promise<any> {
 	switch (method) {
 		case 'initialize':
@@ -131,7 +131,7 @@ export async function handleMcpMessage(
 				return { content: [{ type: 'text', text: JSON.stringify({ exported: records.length, records }) }] };
 			}
 			if (params?.name === WHOAMI_TOOL) {
-				return handleWhoami(dispatch?.actor);
+				return handleWhoami(context?.actor);
 			}
 			if (params?.name !== TOOL_NAME) {
 				throw new Error(`Unknown tool: ${params?.name || '<missing>'}`);
@@ -172,16 +172,16 @@ export async function handleMcpMessage(
  * by the workload SDK before this handler runs. The iframe never receives or
  * forwards a bearer/user token.
  */
-async function handleWhoami(actor?: { subject: string; username?: string; roomId?: string }): Promise<any> {
+async function handleWhoami(actor?: VerifiedActor): Promise<any> {
 	const wrap = (obj: Record<string, any>) => ({ content: [{ type: 'text', text: JSON.stringify(obj) }] });
 	if (!actor) return wrap({ verified: false, error: 'Verified backend actor is unavailable in relay development compatibility mode.' });
-	const username = actor.username || actor.subject;
+	const username = actor.username || actor.userId;
 	return wrap({
 		verified: true,
 		username,
-		userId: actor.subject,
+		userId: actor.userId,
 		roomId: actor.roomId,
-		message: `Backend verified this request came from ${username} (${actor.subject}).`,
+		message: `Backend verified this request came from ${username} (${actor.userId}).`,
 		platform: describePlatformEnvironment(),
 	});
 }

@@ -5,7 +5,8 @@ import net from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
 
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import type { ToolCallContext } from '@privos_ai/app-server';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
 /**
  * A node that runs this app as an App Library generation attests the
@@ -34,6 +35,11 @@ const hubKid = crypto
   .createHash('sha256')
   .update(JSON.stringify({ crv: hubPublicJwk.crv, kty: hubPublicJwk.kty, x: hubPublicJwk.x, y: hubPublicJwk.y }))
   .digest('base64url');
+const actorPair = crypto.generateKeyPairSync('rsa', { modulusLength: 2048 });
+const actorPublicJwk = actorPair.publicKey.export({ format: 'jwk' });
+actorPublicJwk.kid = 'actor-key';
+actorPublicJwk.alg = 'RS256';
+actorPublicJwk.use = 'sig';
 
 const canonicalJson = (value: unknown): string => {
   const canonicalize = (input: unknown): unknown => {
@@ -69,11 +75,15 @@ const thumbprint = (jwk: crypto.JsonWebKey): string =>
 type Harness = {
   socketPath: string;
   hubOrigin: string;
+  tokenBodies: Array<Record<string, unknown>>;
+  roomRequests: number;
   close: () => Promise<void>;
 };
 
 /** The broker socket and Hub endpoints a cluster node exposes to the container. */
 async function startNodeHarness(): Promise<Harness> {
+  const tokenBodies: Array<Record<string, unknown>> = [];
+  let roomRequests = 0;
   const hub = http.createServer((req, res) => {
     let raw = '';
     req.on('data', (chunk) => {
@@ -81,7 +91,25 @@ async function startNodeHarness(): Promise<Harness> {
     });
     req.on('end', () => {
       res.setHeader('content-type', 'application/json');
+      if (req.url === '/.well-known/mcp-apps/jwks.json') {
+        return res.end(JSON.stringify({ keys: [actorPublicJwk] }));
+      }
       if (req.url?.endsWith('mcp-workload.ready')) return res.end(JSON.stringify({ status: 'active' }));
+      if (req.url?.endsWith('mcp-workload.token')) {
+        tokenBodies.push(JSON.parse(raw || '{}'));
+        return res.end(
+          JSON.stringify({
+            access_token: `token-${tokenBodies.length}-${'x'.repeat(32)}`,
+            token_type: 'DPoP',
+            expires_in: 300,
+            scope: 'basic:information',
+          }),
+        );
+      }
+      if (req.url?.startsWith('/api/v1/fake-room')) {
+        roomRequests += 1;
+        return res.end(JSON.stringify({ ok: true }));
+      }
       return res.end(
         JSON.stringify({
           access_token: `token-${'x'.repeat(32)}`,
@@ -140,6 +168,8 @@ async function startNodeHarness(): Promise<Harness> {
   return {
     socketPath,
     hubOrigin,
+    tokenBodies,
+    get roomRequests() { return roomRequests; },
     close: async () => {
       await new Promise<void>((resolve) => broker.close(() => resolve()));
       await new Promise<void>((resolve) => hub.close(() => resolve()));
@@ -177,30 +207,56 @@ function clusterDispatchAssertion(body: unknown, overrides: Record<string, unkno
       runtimeResourceInventoryHash: GENERATION.runtimeResourceInventoryHash,
       runtimeApprovalReceiptHash: APPROVAL_RECEIPT_HASH,
       runtimeGrantEpoch: AUTHORIZATION_EPOCH,
-      authorizationContext: 'workspace',
+      authorizationContext: 'room',
+      roomId: 'room-1',
+      authorizationBindingId: 'binding-1',
+      bindingReceiptHash: 'F'.repeat(43),
+      bindingEpoch: 3,
       ...overrides,
     },
   );
 }
 
-let harness: Harness | undefined;
+function userToken(overrides: Record<string, unknown> = {}): string {
+  const now = Math.floor(Date.now() / 1000);
+  const header = Buffer.from(JSON.stringify({ alg: 'RS256', kid: 'actor-key', typ: 'JWT' })).toString('base64url');
+  const payload = Buffer.from(JSON.stringify({
+    iss: harness?.hubOrigin,
+    sub: 'user-1',
+    aud: 'ai.privos.mcp-app-demo',
+    rid: 'room-1',
+    preferred_username: 'alice',
+    iat: now,
+    exp: now + 300,
+    ...overrides,
+  })).toString('base64url');
+  const signature = crypto.sign('RSA-SHA256', Buffer.from(`${header}.${payload}`, 'ascii'), actorPair.privateKey).toString('base64url');
+  return `${header}.${payload}.${signature}`;
+}
 
-afterEach(async () => {
+let harness: Harness | undefined;
+let canonicalHandlerCalls = 0;
+let verifiedContext: ToolCallContext | undefined;
+
+beforeAll(async () => {
+  harness = await startNodeHarness();
+  process.env.PRIVOS_RUNTIME_MODE = 'production';
+  process.env.NODE_ENV = 'production';
+  process.env.PRIVOS_WORKLOAD_SOCKET = harness.socketPath;
+});
+
+afterAll(async () => {
+  const { stopRuntimeIdentity } = await import('../src/runtime-identity');
+  stopRuntimeIdentity();
   await harness?.close();
-  harness = undefined;
   delete process.env.PRIVOS_RUNTIME_MODE;
   delete process.env.NODE_ENV;
   delete process.env.PRIVOS_WORKLOAD_SOCKET;
   vi.restoreAllMocks();
-  vi.resetModules();
 });
 
 describe('App Library generation runtime', () => {
   it('reports ready once it pairs with a node that attested a generation', async () => {
-    harness = await startNodeHarness();
-    process.env.PRIVOS_RUNTIME_MODE = 'production';
-    process.env.PRIVOS_WORKLOAD_SOCKET = harness.socketPath;
-
     const { getEffectiveCapabilities, runtimeReadiness } = await import('../src/runtime-identity');
     await getEffectiveCapabilities();
 
@@ -215,31 +271,86 @@ describe('App Library generation runtime', () => {
     expect(runtimeReadiness().reason).toBeUndefined();
   });
 
-  it('accepts a dispatch the Hub routed through the cluster', async () => {
-    harness = await startNodeHarness();
-    process.env.PRIVOS_RUNTIME_MODE = 'production';
-    process.env.PRIVOS_WORKLOAD_SOCKET = harness.socketPath;
-
-    const { getEffectiveCapabilities, verifyInboundDispatch } = await import('../src/runtime-identity');
+  it('uses canonical SDK ingress to join room authorization and human identity without leaking the credential', async () => {
+    vi.doMock('../src/mcp-message-handlers', () => ({
+      handleMcpMessage: async (_method: string, _id: string | number | null, _params: unknown, context: ToolCallContext) => {
+        canonicalHandlerCalls += 1;
+        verifiedContext = context;
+        return {
+          content: [{
+            type: 'text',
+            text: JSON.stringify({
+              userId: context.actor?.userId,
+              authorizationBindingId: context.runtimeAuthorization?.authorizationBindingId,
+            }),
+          }],
+        };
+      },
+    }));
+    const { getEffectiveCapabilities } = await import('../src/runtime-identity');
     await getEffectiveCapabilities();
-    const body = { jsonrpc: '2.0', id: 1, method: 'tools/list', params: {} };
-
-    await expect(verifyInboundDispatch(body, clusterDispatchAssertion(body))).resolves.toMatchObject({
-      jti: expect.any(String),
+    const { startHttpServer } = await import('../src/http-server');
+    const server = startHttpServer(0);
+    await new Promise<void>((resolve) => server.once('listening', resolve));
+    const port = (server.address() as net.AddressInfo).port;
+    const body = {
+      jsonrpc: '2.0', id: 1, method: 'tools/call',
+      params: { name: 'hr_whoami', arguments: { browserOnly: 'not-a-credential-source' } },
+    };
+    const credential = userToken();
+    const response = await fetch(`http://127.0.0.1:${port}/mcp`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-privos-dispatch-assertion': clusterDispatchAssertion(body),
+        authorization: `Bearer ${credential}`,
+        'x-mcp-user-id': 'user-1',
+      },
+      body: JSON.stringify(body),
     });
+    expect(response.status).toBe(200);
+    const responseText = await response.text();
+    expect(responseText).not.toContain(credential);
+    expect(responseText).not.toContain('browserOnly');
+    expect(JSON.parse(responseText)).toMatchObject({
+      result: { content: [{ type: 'text', text: expect.stringContaining('"authorizationBindingId":"binding-1"') }] },
+    });
+    expect(verifiedContext).toMatchObject({
+      identityState: 'verified',
+      actor: { userId: 'user-1', roomId: 'room-1' },
+      runtimeAuthorization: { authorizationBindingId: 'binding-1', authorizationContext: 'room' },
+    });
+    const { roomBoundHub } = await import('../src/runtime-identity');
+    const roomResponse = await roomBoundHub(verifiedContext!).authorizedRequest('/api/v1/fake-room', {
+      method: 'GET',
+      requiredScope: 'basic:information',
+    });
+    expect(roomResponse.status).toBe(200);
+    expect(harness.tokenBodies.at(-1)).toMatchObject({ authorizationBindingId: 'binding-1' });
+    expect(harness.roomRequests).toBe(1);
+    await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
   });
 
-  it('refuses a dispatch bound to a superseded authorization epoch', async () => {
-    harness = await startNodeHarness();
-    process.env.PRIVOS_RUNTIME_MODE = 'production';
-    process.env.PRIVOS_WORKLOAD_SOCKET = harness.socketPath;
-
-    const { getEffectiveCapabilities, verifyInboundDispatch } = await import('../src/runtime-identity');
+  it('rejects a tampered generation before the canonical handler runs', async () => {
+    const { getEffectiveCapabilities } = await import('../src/runtime-identity');
     await getEffectiveCapabilities();
+    const { startHttpServer } = await import('../src/http-server');
+    const server = startHttpServer(0);
+    await new Promise<void>((resolve) => server.once('listening', resolve));
+    const port = (server.address() as net.AddressInfo).port;
     const body = { jsonrpc: '2.0', id: 1, method: 'tools/list', params: {} };
-
-    await expect(
-      verifyInboundDispatch(body, clusterDispatchAssertion(body, { runtimeGrantEpoch: AUTHORIZATION_EPOCH - 1 })),
-    ).rejects.toThrow('dispatch_assertion_binding_mismatch');
+    const response = await fetch(`http://127.0.0.1:${port}/mcp`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-privos-dispatch-assertion': clusterDispatchAssertion(body, { runtimeGrantEpoch: AUTHORIZATION_EPOCH - 1 }),
+        authorization: `Bearer ${userToken()}`,
+        'x-mcp-user-id': 'user-1',
+      },
+      body: JSON.stringify(body),
+    });
+    expect(response.status).toBe(403);
+    expect(canonicalHandlerCalls).toBe(1);
+    await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
   });
 });
