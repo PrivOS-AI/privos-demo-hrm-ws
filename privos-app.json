@@ -2,7 +2,7 @@
   "schemaVersion": 3,
   "kind": "mcp-app",
   "name": "ai.privos.mcp-app-demo",
-  "version": "2.3.0",
+  "version": "2.4.0",
   "title": "PrivOS Demo MCP App",
   "description": "Reference PrivOS MCP app demonstrating HR workflows, scoped workspace APIs, AI and sandbox controls, and license-aware features.",
   "icon": "/public/icon.svg",
@@ -110,6 +110,9 @@
     "externalProcessing": false
   },
   "availabilityTier": "single",
+  "capabilities": {
+    "verifiedActor": true
+  },
   "tools": [
     {
       "name": "hr_management_dashboard",

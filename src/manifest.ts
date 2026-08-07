@@ -3,7 +3,7 @@ import publisherManifest from '../privos-app.json';
 export const MARKETPLACE_MANIFEST_FIELDS = [
   'schemaVersion', 'kind', 'name', 'version', 'title', 'description', 'icon',
   'author', 'homepage', 'repository', 'permissions', 'dataPolicy', 'availabilityTier',
-  'tools', 'port', 'resources', 'volumes', 'stateless', 'license', 'env',
+  'capabilities', 'tools', 'port', 'resources', 'volumes', 'stateless', 'license', 'env',
   'resourceManifestTemplate',
 ] as const;
 

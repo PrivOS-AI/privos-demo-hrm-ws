@@ -23,7 +23,12 @@ export class OptionalFeatureUnavailableError extends Error {
 export function safeFeatureError(error: unknown, fallback: string): string {
   if (error instanceof OptionalFeatureUnavailableError) return error.message;
   const message = error instanceof Error ? error.message : String(error || '');
-  if (/permission|forbidden|scope|not.granted|\b403\b/i.test(message)) return new OptionalFeatureUnavailableError().message;
+  // "unauthorized" is in the list because the Hub words its room-role refusals
+  // that way ("error-unauthorized"); without it a permission problem reached the
+  // user as a bare generic failure with nothing actionable in it.
+  if (/permission|forbidden|unauthori[sz]ed|scope|not.granted|\b403\b/i.test(message)) {
+    return new OptionalFeatureUnavailableError().message;
+  }
   return fallback;
 }
 

@@ -229,6 +229,47 @@ describe('App Library generation runtime', () => {
     });
   });
 
+  it('surfaces the acting user the Hub named, and reports whoami as verified', async () => {
+    harness = await startNodeHarness();
+    process.env.PRIVOS_RUNTIME_MODE = 'production';
+    process.env.PRIVOS_WORKLOAD_SOCKET = harness.socketPath;
+
+    const { getEffectiveCapabilities, verifyInboundDispatch } = await import('../src/runtime-identity');
+    const { handleMcpMessage } = await import('../src/mcp-message-handlers');
+    await getEffectiveCapabilities();
+    const body = { jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'hr_whoami', arguments: {} } };
+    const actor = { subject: 'user-1', username: 'techcomthanh', roomId: 'room-1' };
+
+    const dispatch = await verifyInboundDispatch(body, clusterDispatchAssertion(body, { actor }));
+    expect(dispatch).toMatchObject({ actor });
+
+    const result: any = await handleMcpMessage('tools/call', 1, body.params, dispatch);
+    expect(JSON.parse(result.content[0].text)).toMatchObject({
+      verified: true,
+      username: 'techcomthanh',
+      userId: 'user-1',
+    });
+  });
+
+  it('stays usable when the Hub named no actor', async () => {
+    // An agent-initiated dispatch carries none, and so does any Hub that
+    // predates the claim. Whoami degrades; nothing throws.
+    harness = await startNodeHarness();
+    process.env.PRIVOS_RUNTIME_MODE = 'production';
+    process.env.PRIVOS_WORKLOAD_SOCKET = harness.socketPath;
+
+    const { getEffectiveCapabilities, verifyInboundDispatch } = await import('../src/runtime-identity');
+    const { handleMcpMessage } = await import('../src/mcp-message-handlers');
+    await getEffectiveCapabilities();
+    const body = { jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'hr_whoami', arguments: {} } };
+
+    const dispatch = await verifyInboundDispatch(body, clusterDispatchAssertion(body));
+    expect(dispatch).not.toHaveProperty('actor');
+
+    const result: any = await handleMcpMessage('tools/call', 1, body.params, dispatch);
+    expect(JSON.parse(result.content[0].text)).toMatchObject({ verified: false });
+  });
+
   it('refuses a dispatch bound to a superseded authorization epoch', async () => {
     harness = await startNodeHarness();
     process.env.PRIVOS_RUNTIME_MODE = 'production';

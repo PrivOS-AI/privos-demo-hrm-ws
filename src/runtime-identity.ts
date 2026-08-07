@@ -110,14 +110,17 @@ export async function verifyInboundDispatch(body: unknown, compact: string | und
   if (!compact) throw new Error('DISPATCH_ASSERTION_REQUIRED');
   const context = await identity.brokerContext();
   // A node that attested an App Library generation routes dispatch through its
-  // cluster, and that assertion binds the generation rather than a replica. It
-  // carries no actor: the Hub authorizes the call, it does not name the caller.
+  // cluster, and that assertion binds the generation rather than a replica. The
+  // Hub names the caller only when this app declared `capabilities.verifiedActor`
+  // and a user actually initiated the call — an agent-initiated dispatch carries
+  // no actor, so absence is normal and must stay usable.
   if (context.binding.generation) {
     const verified = verifyClusterDispatchAssertionV3({ compact, body, context });
     return Object.freeze({
       jti: verified.jti,
       issuedAt: verified.issuedAt,
       expiresAt: verified.expiresAt,
+      ...(verified.actor ? { actor: verified.actor } : {}),
       ...(verified.roomId ? { roomId: verified.roomId } : {}),
     });
   }
