@@ -84,6 +84,18 @@ npm run manifest:lint
 Portal and Hub add the versioned authoritative permission catalog, data policy, and immutable image
 digest when computing the final permission-contract hash.
 
+## Installation-owned agent bot demo
+
+The **Agent bot** tab demonstrates the split approval model for an app-owned execution identity:
+workspace approval creates one bot for the exact parent installation, while separate Room approvals
+allow joining that bot and reading its safe identity in the current Room. The Room actions accept no
+Room, bot, or token selector; the Hub derives authority from the verified invocation and active Room
+binding. Bot-key provisioning remains a separate Sandbox operation.
+
+See [`src/ui/agent-bot-panel.tsx`](src/ui/agent-bot-panel.tsx) for the three tool calls,
+[`privos-app.json`](privos-app.json) for their permission declarations, and
+[`SCOPES.md`](SCOPES.md) for the approval rationale and degraded behavior.
+
 ## License behavior
 
 The manifest declares a Free tier (50 records) and Pro tier (5,000 records plus `bulk-export`).

@@ -4,6 +4,16 @@ This project follows [Semantic Versioning](https://semver.org/). Each marketplac
 must equal `privos-app.json.version` and `package.json.version`; change both release notes and metadata
 in one commit.
 
+## [2.5.0] - 2026-08-09
+
+### Added
+
+- An Agent bot demo tab that creates one bot owned by the exact app installation, explicitly joins
+  it to the Hub-authorized current Room, and reads only its safe current-Room identity. The Room
+  actions expose no Room, bot, token, or secret selector.
+- Optional approval declarations for `bot:agent:create`, `bot:room:join`, and
+  `bot:identity:read`, each with independent degraded behavior.
+
 ## [2.2.0] - 2026-08-05
 
 ### Added

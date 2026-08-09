@@ -6,6 +6,9 @@ call site and explains the behavior when an optional permission is absent.
 | Permission | Requirement | Execution | Why / call site | Behavior when absent |
 |---|---|---|---|---|
 | `basic:information` | Required | Room; user + background | Loads installation and room context in `info-panel.tsx` and validates workload context. | Installation is cancelled if rejected. |
+| `bot:agent:create` | Optional | Workspace; user | Creates one installation-owned agent bot in `agent-bot-panel.tsx`. | Bot creation is disabled; other approved agent-bot actions remain visible. |
+| `bot:room:join` | Optional | Room; user | Adds only the installation-owned bot to the Hub-resolved current Room in `agent-bot-panel.tsx`. | The bot cannot be added to this Room. |
+| `bot:identity:read` | Optional | Room; user | Reads safe bot identity in `agent-bot-panel.tsx` only after ordinary membership in the Hub-resolved current Room is verified. | Current-Room bot identity is unavailable. |
 | `lists:read` | Required | Room; user | Reads HR lists, fields, stages, and items in `contact-collector-form.tsx` and `list-items-table.tsx`. | Installation is cancelled if rejected. |
 | `lists:write` | Optional | Room; user | Creates and edits HR lists, fields, and records in the Records panel. | Records remain readable; create/edit/delete controls are disabled. |
 | `files:read` | Optional | Room; user | Lists and previews room files in `file-upload-panel.tsx`. | The Files panel is hidden with an explanation. |

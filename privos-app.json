@@ -2,7 +2,7 @@
   "schemaVersion": 3,
   "kind": "mcp-app",
   "name": "ai.privos.mcp-app-demo",
-  "version": "2.4.0",
+  "version": "2.5.0",
   "title": "PrivOS Demo MCP App",
   "description": "Reference PrivOS MCP app demonstrating HR workflows, scoped workspace APIs, AI and sandbox controls, and license-aware features.",
   "icon": "/public/icon.svg",
@@ -21,6 +21,33 @@
       "executionContext": "both",
       "feature": "core.context",
       "reason": "Identify the approved installation and room so the dashboard can load safely."
+    },
+    {
+      "scope": "bot:agent:create",
+      "requirement": "optional",
+      "context": "workspace",
+      "executionContext": "user",
+      "feature": "agent.bot.create",
+      "reason": "Create one dedicated agent bot owned by this exact app installation.",
+      "degradedBehavior": "The app cannot create an installation-owned agent bot."
+    },
+    {
+      "scope": "bot:room:join",
+      "requirement": "optional",
+      "context": "room",
+      "executionContext": "user",
+      "feature": "agent.bot.join",
+      "reason": "Add the installation-owned agent bot to the exact Room approved by the Hub.",
+      "degradedBehavior": "The app cannot add its installation-owned agent bot to this Room."
+    },
+    {
+      "scope": "bot:identity:read",
+      "requirement": "optional",
+      "context": "room",
+      "executionContext": "user",
+      "feature": "agent.bot.identity",
+      "reason": "Read safe identity for the installation bot only when it belongs to the exact approved Room.",
+      "degradedBehavior": "The app cannot display the installation bot identity for this Room."
     },
     {
       "scope": "lists:read",
