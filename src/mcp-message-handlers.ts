@@ -21,6 +21,14 @@ const WHOAMI_TOOL = 'hr_whoami';
 const BULK_EXPORT_TOOL = 'hr_bulk_export';
 const UI_RESOURCE_URI = 'ui://privos-mcp-app-demo/form.html';
 
+/**
+ * Embed origins this app declares, read straight from the published manifest so the runtime
+ * advertisement and the marketplace listing can never disagree about what was requested.
+ */
+const UI_DECLARED_CSP: Record<string, string[]> | undefined = (pkg.tools as any[] | undefined)?.find(
+	(tool) => tool?.ui?.resourceUri === UI_RESOURCE_URI,
+)?.ui?.csp;
+
 /** Read icon as data URI from package.json icon path */
 function getIconDataUri(): string | undefined {
 	const iconPath = pkg.icon?.startsWith('/') ? path.join(moduleDir, '..', pkg.icon) : undefined;
@@ -96,7 +104,10 @@ export async function handleMcpMessage(
 							properties: { roomId: { type: 'string' } },
 						},
 						_meta: {
-							ui: { resourceUri: UI_RESOURCE_URI },
+							// The CSP block declares the external origins this app's UI would like to
+							// embed. It grants nothing: a workspace admin approves what may actually
+							// load, and the Hub enforces that approval on the served document.
+							ui: { resourceUri: UI_RESOURCE_URI, csp: UI_DECLARED_CSP },
 						},
 					},
 					{

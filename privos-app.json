@@ -2,7 +2,7 @@
   "schemaVersion": 3,
   "kind": "mcp-app",
   "name": "ai.privos.mcp-app-demo",
-  "version": "2.4.0",
+  "version": "2.4.1",
   "title": "PrivOS Demo MCP App",
   "description": "Reference PrivOS MCP app demonstrating HR workflows, scoped workspace APIs, AI and sandbox controls, and license-aware features.",
   "icon": "/public/icon.svg",
@@ -127,7 +127,12 @@
         }
       },
       "ui": {
-        "resourceUri": "ui://privos-mcp-app-demo/form.html"
+        "resourceUri": "ui://privos-mcp-app-demo/form.html",
+        "csp": {
+          "frame-src": [
+            "https://www.youtube.com"
+          ]
+        }
       }
     },
     {

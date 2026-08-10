@@ -4,6 +4,16 @@ This project follows [Semantic Versioning](https://semver.org/). Each marketplac
 must equal `privos-app.json.version` and `package.json.version`; change both release notes and metadata
 in one commit.
 
+## [2.4.1] - 2026-08-10
+
+### Added
+
+- An Embeds demo tab showing how the workspace's external-embed allowlist behaves. The app
+  declares `https://www.youtube.com` under `tools[].ui.csp['frame-src']`; the tab renders that
+  declared provider next to an origin it never declared, and lists whatever the browser refuses,
+  so an operator can see that a declaration is a request and the administrator's approval is what
+  is enforced. No new permission scope is requested.
+
 ## [2.2.0] - 2026-08-05
 
 ### Added
