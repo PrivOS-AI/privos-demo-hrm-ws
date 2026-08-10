@@ -154,7 +154,12 @@
         }
       },
       "ui": {
-        "resourceUri": "ui://privos-mcp-app-demo/form.html"
+        "resourceUri": "ui://privos-mcp-app-demo/form.html",
+        "csp": {
+          "frame-src": [
+            "https://www.youtube.com"
+          ]
+        }
       }
     },
     {

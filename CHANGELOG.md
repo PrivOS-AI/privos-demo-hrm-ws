@@ -8,6 +8,11 @@ in one commit.
 
 ### Added
 
+- An Embeds demo tab showing how the workspace's external-embed allowlist behaves. The app
+  declares `https://www.youtube.com` under `tools[].ui.csp['frame-src']`; the tab renders that
+  declared provider next to an origin it never declared, and lists whatever the browser refuses,
+  so an operator can see that a declaration is a request and the administrator's approval is what
+  is enforced.
 - An Agent bot demo tab that creates one bot owned by the exact app installation, explicitly joins
   it to the Hub-authorized current Room, and reads only its safe current-Room identity. The Room
   actions expose no Room, bot, token, or secret selector.

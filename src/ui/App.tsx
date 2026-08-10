@@ -13,8 +13,9 @@ import InfoPanel from './info-panel';
 import LicensePanel from './license-panel';
 import AppOwnedChatPanel from './app-owned-chat-panel';
 import AgentBotPanel from './agent-bot-panel';
+import EmbedsPanel from './embeds-panel';
 
-type Tab = 'identity' | 'info' | 'records' | 'license' | 'files' | 'chat' | 'poem' | 'history' | 'skills' | 'sandbox' | 'agent';
+type Tab = 'identity' | 'info' | 'records' | 'license' | 'files' | 'chat' | 'poem' | 'history' | 'skills' | 'sandbox' | 'agent' | 'embeds';
 
 const TABS: { id: Tab; label: string; scope?: string; degradedBehavior?: string }[] = [
   { id: 'identity', label: 'Identity' },
@@ -28,6 +29,8 @@ const TABS: { id: Tab; label: string; scope?: string; degradedBehavior?: string 
   { id: 'skills', label: 'Skills', scope: 'sandbox:skills:use', degradedBehavior: 'Sandbox skill controls are hidden.' },
   { id: 'sandbox', label: 'Sandbox', scope: 'sandbox:botkey:push', degradedBehavior: 'Sandbox connection controls are unavailable.' },
   { id: 'agent', label: 'Agent bot' },
+  // No scope: embedding is governed by the admin's per-app origin allowlist, not a grant.
+  { id: 'embeds', label: 'Embeds' },
 ];
 
 function FeatureUnavailable({ text }: { text: string }) {
@@ -83,6 +86,7 @@ function ThemedApp() {
           {tab === 'skills' && <SkillsPanel />}
           {tab === 'sandbox' && <SandboxConnectPanel />}
           {tab === 'agent' && <AgentBotPanel />}
+          {tab === 'embeds' && <EmbedsPanel />}
         </>
       )}
 
