@@ -97,6 +97,27 @@ export async function getEffectiveCapabilities(): Promise<EffectiveCapabilities>
   return capabilities;
 }
 
+/**
+ * Resolve the Hub's own origin — not this app's public URL from
+ * `getPlatformContext()` — for backend calls that must reach the Hub
+ * directly (the agent bot credential self-check). Production reuses the
+ * paired workload broker context, the same source `verifyInboundDispatch`
+ * above trusts. Development compatibility has no broker; it reuses the
+ * legacy relay's `PRIVOS_URL`, the only Hub address available outside a
+ * managed runtime. Returns `undefined` when neither is available.
+ */
+export async function resolveHubOrigin(): Promise<string | undefined> {
+  if (!productionMode) {
+    const relayUrl = process.env.PRIVOS_URL;
+    return relayUrl && /^https?:\/\//.test(relayUrl) ? relayUrl.replace(/\/+$/, '') : undefined;
+  }
+  try {
+    return (await identity.brokerContext()).hubOrigin;
+  } catch {
+    return undefined;
+  }
+}
+
 export type VerifiedInboundDispatch = Readonly<{
   jti: string;
   issuedAt: number;

@@ -18,6 +18,7 @@
 import { useState } from 'react';
 import { usePrivosApp, usePrivosContext, parseToolResult } from '@privos_ai/app-react';
 import BotWorkloadAttemptSection from './bot-workload-attempt-section';
+import BotWorkloadCredentialCheck from './bot-workload-credential-check';
 
 type BotIdentity = {
   botId: string;
@@ -162,8 +163,11 @@ export default function BotWorkloadPanel() {
         This app's backend reads it from its own declared secret environment variable; a browser
         is never on that path. Re-issuing invalidates the previous credential immediately, and the
         new value only reaches a running app after the admin applies the configuration, which
-        recreates its containers.
+        recreates its containers. Use the button below to prove the backend's configured
+        credential currently works.
       </p>
+
+      <BotWorkloadCredentialCheck />
 
       <BotWorkloadAttemptSection app={app} roomId={roomId} identity={identity} canGenerate={canGenerate} />
     </section>

@@ -4,6 +4,28 @@ This project follows [Semantic Versioning](https://semver.org/). Each marketplac
 must equal `privos-app.json.version` and `package.json.version`; change both release notes and metadata
 in one commit.
 
+## [2.8.0] - 2026-08-11
+
+### Added
+
+- A "Validate credential" button on the Bot workload tab that proves the
+  configured agent bot credential actually works, instead of only explaining
+  where it comes from. Backend tool `hr_agent_bot_credential_check` calls the
+  Hub's own `GET /api/v1/me` with `PRIVOS_AGENT_BOT_CREDENTIAL` +
+  `PRIVOS_AGENT_BOT_USER_ID` as the `x-user-id`/`x-auth-token` header pair
+  Hub REST authentication expects, bounded by a 5s timeout. The UI
+  distinguishes `not-configured` (either env var absent), `invalid` (Hub
+  rejected them — most likely cause named explicitly: an admin re-issued the
+  credential and this container still holds the old, dead value until the
+  configuration is applied and the container recreated), `hub-unreachable`
+  (Hub origin unresolved or the request itself failed/timed out — distinct
+  from an explicit rejection), and `valid` (shows the bot's own `_id`/
+  `username` as proof). The credential value itself is never returned,
+  logged, or thrown.
+- Declared the reserved env key `PRIVOS_AGENT_BOT_USER_ID` (not secret),
+  paired with the existing `PRIVOS_AGENT_BOT_CREDENTIAL` for Hub REST
+  authentication.
+
 ## [2.7.0] - 2026-08-11
 
 ### Changed

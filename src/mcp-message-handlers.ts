@@ -12,6 +12,7 @@ import { getPlatformContext, publicUrlFor } from '@privos_ai/app-server';
 
 import _pkg from '../privos-app.json';
 import { createLicenseGuard } from './license';
+import { checkAgentBotCredential } from './agent-bot-credential-check';
 const pkg = _pkg as Record<string, any>;
 const moduleDir = path.dirname(fileURLToPath(import.meta.url));
 const TOOL_NAME = 'hr_management_dashboard';
@@ -19,6 +20,9 @@ const TOOL_NAME = 'hr_management_dashboard';
 // private dispatch assertion verified before the request reaches this handler.
 const WHOAMI_TOOL = 'hr_whoami';
 const BULK_EXPORT_TOOL = 'hr_bulk_export';
+// Pure data (no UI) tool: proves the configured agent bot credential actually
+// authenticates against the Hub. See agent-bot-credential-check.ts.
+const CREDENTIAL_CHECK_TOOL = 'hr_agent_bot_credential_check';
 const UI_RESOURCE_URI = 'ui://privos-mcp-app-demo/form.html';
 
 /**
@@ -130,6 +134,15 @@ export async function handleMcpMessage(
 							required: ['records'],
 						},
 					},
+					{
+						name: CREDENTIAL_CHECK_TOOL,
+						title: 'Validate agent bot credential',
+						description: "Confirm this app's configured agent bot credential authenticates against the Hub.",
+						inputSchema: {
+							type: 'object',
+							properties: {},
+						},
+					},
 				],
 			};
 
@@ -143,6 +156,9 @@ export async function handleMcpMessage(
 			}
 			if (params?.name === WHOAMI_TOOL) {
 				return handleWhoami(dispatch?.actor);
+			}
+			if (params?.name === CREDENTIAL_CHECK_TOOL) {
+				return { content: [{ type: 'text', text: JSON.stringify(await checkAgentBotCredential()) }] };
 			}
 			if (params?.name !== TOOL_NAME) {
 				throw new Error(`Unknown tool: ${params?.name || '<missing>'}`);
