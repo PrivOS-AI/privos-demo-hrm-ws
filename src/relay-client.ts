@@ -116,7 +116,33 @@ async function getAccessToken(privosUrl: string, clientId: string, clientSecret:
 	return data.access_token;
 }
 
-/** Connect to Privos relay WebSocket with auto-reconnect */
+const BACKOFF_SCHEDULE_MS = [5_000, 10_000, 20_000, 40_000, 60_000];
+let reconnectAttempt = 0;
+
+/** Schedule a reconnect with exponential backoff (caps at 60s).
+ *  Keeps retrying indefinitely — handles multi-day Privos outages.
+ *  If `connectRelay` itself throws (e.g. OAuth fails because Privos is still
+ *  down), the catch re-schedules so we never stop trying. */
+function scheduleReconnect(opts: RelayClientOptions): void {
+	const delay = BACKOFF_SCHEDULE_MS[Math.min(reconnectAttempt, BACKOFF_SCHEDULE_MS.length - 1)];
+	reconnectAttempt++;
+	console.log(`[Relay] Reconnecting in ${delay / 1000}s (attempt ${reconnectAttempt})...`);
+	setTimeout(() => {
+		connectRelay(opts).catch((err) => {
+			console.error('[Relay] Reconnect attempt failed:', err?.message || err);
+			scheduleReconnect(opts);
+		});
+	}, delay);
+}
+
+// The hub pings every 30s, so a healthy connection receives traffic at least
+// that often. If nothing arrives for two ping cycles (+ margin), the socket is
+// a half-open zombie — e.g. a proxy dropped the origin leg without closing
+// ours, so the 'close' event never fires on its own. terminate() forces it,
+// which hands control to scheduleReconnect().
+const IDLE_TIMEOUT_MS = 75_000;
+
+/** Connect to Privos relay WebSocket with auto-reconnect + liveness watchdog. */
 export async function connectRelay(opts: RelayClientOptions): Promise<WebSocket> {
 	assertDevelopmentRelay();
 	const accessToken = await getAccessToken(opts.privosUrl, opts.clientId, opts.clientSecret);
@@ -125,9 +151,23 @@ export async function connectRelay(opts: RelayClientOptions): Promise<WebSocket>
 	const wsUrl = opts.privosUrl.replace(/^http/, 'ws') + '/api/v1/mcp-apps.relay';
 	const ws = new WebSocket(wsUrl, { headers: { Authorization: `Bearer ${accessToken}` } });
 
-	ws.on('open', () => console.log('[Relay] Connected to Privos'));
+	let watchdog: ReturnType<typeof setTimeout> | undefined;
+	const resetWatchdog = () => {
+		clearTimeout(watchdog);
+		watchdog = setTimeout(() => {
+			console.warn(`[Relay] No ping/data for ${IDLE_TIMEOUT_MS / 1000}s — connection is dead, terminating`);
+			ws.terminate();
+		}, IDLE_TIMEOUT_MS);
+	};
+
+	ws.on('open', () => {
+		console.log(`[Relay] Connected to Privos${reconnectAttempt > 0 ? ` (after ${reconnectAttempt} reconnect attempt${reconnectAttempt > 1 ? 's' : ''})` : ''}`);
+		reconnectAttempt = 0;
+		resetWatchdog();
+	});
 
 	ws.on('message', async (raw: Buffer) => {
+		resetWatchdog();
 		const msg = JSON.parse(raw.toString());
 		if (msg.jsonrpc !== '2.0' || !msg.method) return;
 		try {
@@ -142,10 +182,14 @@ export async function connectRelay(opts: RelayClientOptions): Promise<WebSocket>
 		}
 	});
 
-	ws.on('ping', () => ws.pong());
+	ws.on('ping', () => {
+		ws.pong();
+		resetWatchdog();
+	});
 	ws.on('close', (code) => {
-		console.log(`[Relay] Disconnected (code: ${code}), reconnecting in 5s...`);
-		setTimeout(() => connectRelay(opts), 5000);
+		clearTimeout(watchdog);
+		console.log(`[Relay] Disconnected (code: ${code})`);
+		scheduleReconnect(opts);
 	});
 	ws.on('error', (err) => console.error('[Relay] WS error:', err.message));
 
