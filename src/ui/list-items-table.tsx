@@ -5,6 +5,22 @@ import { useState, useEffect, useCallback } from 'react';
 import type { McpApp } from '@privos_ai/app-react';
 import { restCall } from './privos-rest';
 
+/** Items requested per window. Deliberately small so paging is visible in the demo. */
+const PAGE_SIZE = 20;
+
+/** Merge a freshly fetched window into the held items, keyed by `_id`. */
+function mergeById(existing: ItemData[], incoming: ItemData[]): ItemData[] {
+  const byId = new Map(existing.map((item) => [item._id, item]));
+  incoming.forEach((item) => byId.set(item._id, item));
+  return Array.from(byId.values());
+}
+
+/** Did this request fail because the installation lacks the scope it needs? */
+function isScopeDenied(err: any): boolean {
+  const message = String(err?.message ?? '').toLowerCase();
+  return message.includes('scope') || message.includes('not allowed') || message.includes('forbidden') || err?.status === 403;
+}
+
 interface FieldDefinition {
   _id: string;
   name: string;
@@ -31,6 +47,13 @@ export default function ListItemsTable({ app, listId, fields, refreshKey, readOn
   const [items, setItems] = useState<ItemData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+  const [lastSyncAt, setLastSyncAt] = useState<string | null>(null);
+  /** True when the response came from the capped legacy route rather than a query. */
+  const [capped, setCapped] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -38,22 +61,106 @@ export default function ListItemsTable({ app, listId, fields, refreshKey, readOn
   const [editFields, setEditFields] = useState<Record<string, any>>({});
   const [saving, setSaving] = useState(false);
 
+  /**
+   * Load one window.
+   *
+   * `items.query` needs the optional `lists:query` scope. Until an administrator
+   * grants it the app keeps working through the older route, which answers with at
+   * most 500 items — so the fallback says so rather than quietly showing a subset.
+   */
+  const loadWindow = useCallback(async (cursor?: string) => {
+    const body = await restCall<{ items: ItemData[]; nextCursor: string | null }>(
+      app, 'POST', 'items.query', {
+        body: {
+          listId,
+          filter: search.trim() ? { text: search.trim() } : undefined,
+          sort: { field: 'order', direction: 1 },
+          count: PAGE_SIZE,
+          cursor,
+        },
+      },
+    );
+    return { items: Array.isArray(body.items) ? body.items : [], nextCursor: body.nextCursor ?? null };
+  }, [app, listId, search]);
+
   const fetchItems = useCallback(async () => {
     if (!listId) return;
     setLoading(true);
     setError(null);
     try {
-      // GET items.listByListId returns { items }.
-      const body = await restCall<{ items: ItemData[] }>(
-        app, 'GET', 'items.listByListId', { query: { listId } },
-      );
-      setItems(Array.isArray(body.items) ? body.items : []);
+      const page = await loadWindow();
+      setItems(page.items);
+      setNextCursor(page.nextCursor);
+      setCapped(false);
+      setLastSyncAt(new Date().toISOString());
     } catch (err: any) {
-      setError(err?.message || 'Failed to load items');
+      // A missing grant is reported by the proxy as a refused request; anything else
+      // is a real failure and is shown as one.
+      if (isScopeDenied(err)) {
+        try {
+          const body = await restCall<{ items: ItemData[]; truncated?: boolean }>(
+            app, 'GET', 'items.listByListId', { query: { listId } },
+          );
+          setItems(Array.isArray(body.items) ? body.items : []);
+          setNextCursor(null);
+          setCapped(Boolean(body.truncated));
+        } catch (fallbackErr: any) {
+          setError(fallbackErr?.message || 'Failed to load items');
+        }
+      } else {
+        setError(err?.message || 'Failed to load items');
+      }
     } finally {
       setLoading(false);
     }
-  }, [app, listId]);
+  }, [app, listId, loadWindow]);
+
+  const loadMore = useCallback(async () => {
+    if (!nextCursor || loadingMore) return;
+    setLoadingMore(true);
+    try {
+      const page = await loadWindow(nextCursor);
+      // Merge by _id: a window boundary can repeat an item when the list is reordered
+      // between requests.
+      setItems((prev) => mergeById(prev, page.items));
+      setNextCursor(page.nextCursor);
+    } catch (err: any) {
+      setError(err?.message || 'Failed to load more items');
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [nextCursor, loadingMore, loadWindow]);
+
+  /**
+   * Incremental sync: ask only for what changed since the last successful load and
+   * merge it in. This is the pattern an app should use to stay current without
+   * re-reading a list it already holds.
+   */
+  const syncChanges = useCallback(async () => {
+    if (!listId || !lastSyncAt) return;
+    setSyncing(true);
+    try {
+      const body = await restCall<{ items: ItemData[] }>(
+        app, 'POST', 'items.query', {
+          body: {
+            listId,
+            filter: { updatedAt: { gte: lastSyncAt } },
+            sort: { field: '_updatedAt', direction: -1 },
+            count: PAGE_SIZE,
+          },
+        },
+      );
+      const changed = Array.isArray(body.items) ? body.items : [];
+      if (changed.length > 0) {
+        setItems((prev) => mergeById(prev, changed));
+      }
+      setLastSyncAt(new Date().toISOString());
+    } catch (err: any) {
+      setError(err?.message || 'Failed to sync changes');
+    } finally {
+      setSyncing(false);
+    }
+  }, [app, listId, lastSyncAt]);
 
   useEffect(() => { fetchItems(); }, [fetchItems, refreshKey]);
 
@@ -123,10 +230,40 @@ export default function ListItemsTable({ app, listId, fields, refreshKey, readOn
 
   if (loading) return <p className="loading-text">Loading items...</p>;
   if (error) return <p className="error-message">{error}</p>;
-  if (items.length === 0) return <p className="empty-text">No items yet.</p>;
+
+  const controls = (
+    <div className="items-table-controls" style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8, flexWrap: 'wrap' }}>
+      <input
+        type="text"
+        value={search}
+        placeholder="Search items..."
+        onChange={(e) => setSearch(e.target.value)}
+        onKeyDown={(e) => { if (e.key === 'Enter') fetchItems(); }}
+        className="edit-input"
+        style={{ flex: '1 1 180px' }}
+      />
+      <button className="btn-cancel-edit" onClick={() => fetchItems()}>Search</button>
+      <button className="btn-cancel-edit" onClick={() => syncChanges()} disabled={syncing || !lastSyncAt}>
+        {syncing ? 'Syncing...' : 'Sync changes'}
+      </button>
+      {capped && (
+        <span className="file-size">Showing up to 500 items — grant “Query list items” to page through the whole list.</span>
+      )}
+    </div>
+  );
+
+  if (items.length === 0) {
+    return (
+      <div className="items-table-wrapper">
+        {controls}
+        <p className="empty-text">{search.trim() ? 'No items match that search.' : 'No items yet.'}</p>
+      </div>
+    );
+  }
 
   return (
     <div className="items-table-wrapper">
+      {controls}
       <table className="items-table">
         <thead>
           <tr>
@@ -178,7 +315,16 @@ export default function ListItemsTable({ app, listId, fields, refreshKey, readOn
           ))}
         </tbody>
       </table>
-      <p className="items-count">{items.length} record{items.length !== 1 ? 's' : ''}</p>
+
+      {nextCursor && (
+        <button className="btn-cancel-edit" onClick={() => loadMore()} disabled={loadingMore} style={{ marginBlockStart: 8 }}>
+          {loadingMore ? 'Loading...' : 'Load more'}
+        </button>
+      )}
+
+      {/* No total is shown: the query API deliberately does not return one, because a
+          count cannot apply the visibility rule an isolated list is subject to. */}
+      <p className="items-count">{items.length} record{items.length !== 1 ? 's' : ''} loaded</p>
 
       {/* Delete confirmation modal */}
       {!readOnly && confirmDeleteId && (

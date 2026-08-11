@@ -2,7 +2,7 @@
   "schemaVersion": 3,
   "kind": "mcp-app",
   "name": "ai.privos.mcp-app-demo",
-  "version": "2.8.0",
+  "version": "2.9.0",
   "title": "PrivOS Demo MCP App",
   "description": "Reference PrivOS MCP app demonstrating HR workflows, scoped workspace APIs, AI and sandbox controls, and license-aware features.",
   "icon": "/public/icon.svg",
@@ -56,6 +56,14 @@
       "executionContext": "user",
       "feature": "hr.records.read",
       "reason": "Read the HR lists selected for this room."
+    },
+    {
+      "scope": "lists:query",
+      "requirement": "optional",
+      "context": "room",
+      "executionContext": "user",
+      "feature": "hr.records.query",
+      "reason": "Page and search HR records without reading the whole list."
     },
     {
       "scope": "lists:write",
