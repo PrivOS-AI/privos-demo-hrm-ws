@@ -1,40 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  mapCredentialIssueError,
-  extractIssuanceEvidence,
-  buildGenerateAsyncPayload,
-  ATTEMPT_TERMINAL,
-} from '../src/ui/bot-workload-helpers';
-
-describe('mapCredentialIssueError', () => {
-  it('maps BOT_CREDENTIAL_ISSUE_DENIED and BOT_CREDENTIAL_ISSUE_DISABLED to distinct messages', () => {
-    const denied = mapCredentialIssueError(new Error('BOT_CREDENTIAL_ISSUE_DENIED'));
-    const disabled = mapCredentialIssueError(new Error('BOT_CREDENTIAL_ISSUE_DISABLED'));
-    expect(denied).not.toBe(disabled);
-    expect(denied).toMatch(/not authorized/i);
-    expect(disabled).toMatch(/turned off/i);
-  });
-
-  it('falls back to the raw message for an unrecognized error', () => {
-    expect(mapCredentialIssueError(new Error('something else'))).toBe('something else');
-    expect(mapCredentialIssueError('not an Error instance')).toBe('not an Error instance');
-  });
-});
-
-describe('extractIssuanceEvidence', () => {
-  it('never returns the credential value, only issuedAt', () => {
-    const result = { botId: 'bot-1', username: 'demo', credential: 'top-secret-value', issuedAt: '2026-08-11T00:00:00.000Z' };
-    const evidence = extractIssuanceEvidence(result);
-    expect(evidence).toEqual({ issuedAt: '2026-08-11T00:00:00.000Z' });
-    expect(Object.keys(evidence)).toEqual(['issuedAt']);
-    expect(JSON.stringify(evidence)).not.toContain('top-secret-value');
-  });
-
-  it('returns null issuedAt when missing or malformed', () => {
-    expect(extractIssuanceEvidence({})).toEqual({ issuedAt: null });
-    expect(extractIssuanceEvidence({ issuedAt: 12345 as unknown as string })).toEqual({ issuedAt: null });
-  });
-});
+import { buildGenerateAsyncPayload, ATTEMPT_TERMINAL } from '../src/ui/bot-workload-helpers';
 
 describe('buildGenerateAsyncPayload', () => {
   const base = { roomId: 'room-1', prompt: 'hello', taskId: 'task-1', taskTitle: 'Task One' };

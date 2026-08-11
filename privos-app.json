@@ -2,7 +2,7 @@
   "schemaVersion": 3,
   "kind": "mcp-app",
   "name": "ai.privos.mcp-app-demo",
-  "version": "2.6.0",
+  "version": "2.7.0",
   "title": "PrivOS Demo MCP App",
   "description": "Reference PrivOS MCP app demonstrating HR workflows, scoped workspace APIs, AI and sandbox controls, and license-aware features.",
   "icon": "/public/icon.svg",
@@ -48,15 +48,6 @@
       "feature": "agent.bot.identity",
       "reason": "Read safe identity for the installation bot only when it belongs to the exact approved Room.",
       "degradedBehavior": "The app cannot display the installation bot identity for this Room."
-    },
-    {
-      "scope": "bot:credential:issue",
-      "requirement": "optional",
-      "context": "workspace",
-      "executionContext": "user",
-      "feature": "agent.bot.credential",
-      "reason": "Issue the installation-owned agent bot's Hub API credential so an app backend can authenticate its own REST calls as that bot.",
-      "degradedBehavior": "The app cannot issue or rotate the installation bot's Hub credential."
     },
     {
       "scope": "lists:read",
@@ -259,6 +250,12 @@
     {
       "key": "HRM_SMTP_PASSWORD",
       "description": "Password for the SMTP account payslip mail is sent through.",
+      "required": false,
+      "secret": true
+    },
+    {
+      "key": "PRIVOS_AGENT_BOT_CREDENTIAL",
+      "description": "This app's installation agent bot's Hub API credential. Reserved key: issued and rotated only by a workspace admin from Admin > Apps > this app > Settings, never by this app.",
       "required": false,
       "secret": true
     }

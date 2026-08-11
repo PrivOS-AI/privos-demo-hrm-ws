@@ -202,8 +202,12 @@ async function handleWhoami(actor?: { subject: string; username?: string; roomId
  * end-to-end check can prove the environment actually reached the container.
  *
  * A secret is reported as SET or UNSET and never by value: this output travels
- * through the room, so printing the SMTP password here would be exactly the
- * leak the whole write-only path exists to prevent.
+ * through the room, so printing the SMTP password — or the agent bot
+ * credential — here would be exactly the leak the whole write-only path
+ * exists to prevent. `PRIVOS_AGENT_BOT_CREDENTIAL` is written by a workspace
+ * admin from Admin > Apps > this app > Settings, never by this app; this
+ * backend only ever reads it from its own environment, the same as any other
+ * declared secret.
  */
 function describePlatformEnvironment(): Record<string, unknown> {
 	const platform = getPlatformContext();
@@ -214,6 +218,7 @@ function describePlatformEnvironment(): Record<string, unknown> {
 		companyName: process.env.HRM_COMPANY_NAME ?? null,
 		locale: process.env.HRM_LOCALE ?? 'en-US',
 		smtpPasswordSet: Boolean(process.env.HRM_SMTP_PASSWORD),
+		agentBotCredentialSet: Boolean(process.env.PRIVOS_AGENT_BOT_CREDENTIAL),
 	};
 }
 

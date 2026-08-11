@@ -1,24 +1,22 @@
 /**
- * Bot workload panel — demonstrates the installation agent bot's full
- * execution lifecycle end to end: create the bot, join the current Room,
- * issue its Hub credential, then pick it (or the Room default bot) as the
- * executor for a Sandbox attempt (see `bot-workload-attempt-section.tsx`).
+ * Bot workload panel — demonstrates the installation agent bot's execution
+ * lifecycle: create the bot, join the current Room, read its identity, then
+ * pick it (or the Room default bot) as the executor for a Sandbox attempt
+ * (see `bot-workload-attempt-section.tsx`).
  *
  * The lifecycle calls below mirror `agent-bot-panel.tsx`'s pattern exactly —
  * no Room, bot, or token selector is ever sent; the Hub derives all of that
  * from the verified installation/Room context.
  *
- * `mcpapp.bot.issueCredential` takes no arguments and returns the bot's Hub
- * API credential exactly once. This panel never renders, logs, or stores
- * that value: see `bot-workload-helpers.ts`'s `extractIssuanceEvidence`,
- * which is the only place the tool result is touched. The credential belongs
- * in the app BACKEND — which can call the same tool through its own workload
- * identity — never a browser tab, which is exactly why this UI only ever
- * shows that issuance succeeded and when.
+ * This app never issues the bot's Hub credential — no tool call for that
+ * exists any more. A workspace admin issues or re-issues it from Admin >
+ * Apps > this app > Settings, and the Hub writes it straight into this
+ * app's own declared secret env var; the backend reads it from there, so a
+ * browser is never on that path. See the note rendered below the identity
+ * list.
  */
 import { useState } from 'react';
 import { usePrivosApp, usePrivosContext, parseToolResult } from '@privos_ai/app-react';
-import { mapCredentialIssueError, extractIssuanceEvidence } from './bot-workload-helpers';
 import BotWorkloadAttemptSection from './bot-workload-attempt-section';
 
 type BotIdentity = {
@@ -31,7 +29,7 @@ type BotIdentity = {
   joined?: boolean;
 };
 
-type LifecycleAction = 'create' | 'join' | 'read' | 'credential';
+type LifecycleAction = 'create' | 'join' | 'read';
 
 const LIFECYCLE_ERROR_MESSAGES: Record<string, string> = {
   BOT_AGENT_CREATE_DENIED: 'Bot creation is not approved for this installation or user.',
@@ -55,12 +53,10 @@ export default function BotWorkloadPanel() {
   const [busy, setBusy] = useState<LifecycleAction | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [credentialIssuedAt, setCredentialIssuedAt] = useState<string | null>(null);
 
   const canCreate = effectiveScopes?.includes('bot:agent:create') === true;
   const canJoin = effectiveScopes?.includes('bot:room:join') === true;
   const canRead = effectiveScopes?.includes('bot:identity:read') === true;
-  const canIssueCredential = effectiveScopes?.includes('bot:credential:issue') === true;
   const canGenerate = effectiveScopes?.includes('sandbox:generate') === true;
 
   async function callTool<T>(
@@ -108,31 +104,18 @@ export default function BotWorkloadPanel() {
     setNotice('Verified the installation agent bot for the current Room.');
   }
 
-  async function issueCredential() {
-    // No arguments — the Hub derives the bot exclusively from the verified
-    // installation. `result` briefly holds the raw credential in this local
-    // scope only; extractIssuanceEvidence is the only place it is read, and
-    // only for the non-secret `issuedAt` field.
-    const result = await callTool<{ issuedAt?: string }>('credential', 'mcpapp.bot.issueCredential', {}, mapCredentialIssueError);
-    if (!result) return;
-    const evidence = extractIssuanceEvidence(result);
-    setCredentialIssuedAt(evidence.issuedAt);
-    setNotice('Credential issued. The value itself was never rendered, logged, or stored by this app.');
-  }
-
   return (
     <section className="container">
       <h1>Bot workload</h1>
       <p className="empty-text">
-        Full lifecycle demo: create the installation bot, join it to this Room, issue its Hub
-        credential, then run it as a Sandbox executor below.
+        Lifecycle demo: create the installation bot, join it to this Room, read its identity,
+        then run it as a Sandbox executor below.
       </p>
 
       <ul className="file-list" aria-label="Bot workload approval scopes">
         <ScopeStatus scope="bot:agent:create" granted={canCreate} />
         <ScopeStatus scope="bot:room:join" granted={canJoin} />
         <ScopeStatus scope="bot:identity:read" granted={canRead} />
-        <ScopeStatus scope="bot:credential:issue" granted={canIssueCredential} />
         <ScopeStatus scope="sandbox:generate" granted={canGenerate} />
       </ul>
 
@@ -173,18 +156,14 @@ export default function BotWorkloadPanel() {
         </ul>
       )}
 
-      <div className="form-actions" style={{ marginTop: 8 }}>
-        <button type="button" onClick={issueCredential} disabled={!canIssueCredential || busy !== null || !identity}>
-          {busy === 'credential' ? 'Issuing…' : 'Issue Hub credential'}
-        </button>
-      </div>
-      {credentialIssuedAt && (
-        <p className="empty-text" style={{ textAlign: 'left' }}>
-          Issued at {new Date(credentialIssuedAt).toLocaleString()}. The raw credential is a
-          backend secret — it belongs behind this app's own server, authenticating its own Hub
-          REST calls as this bot, never in a browser tab.
-        </p>
-      )}
+      <p className="empty-text" style={{ textAlign: 'left', marginTop: 8 }}>
+        This app never issues the bot's Hub credential — there is no button for it here. A
+        workspace admin issues or re-issues it from Admin &gt; Apps &gt; this app &gt; Settings.
+        This app's backend reads it from its own declared secret environment variable; a browser
+        is never on that path. Re-issuing invalidates the previous credential immediately, and the
+        new value only reaches a running app after the admin applies the configuration, which
+        recreates its containers.
+      </p>
 
       <BotWorkloadAttemptSection app={app} roomId={roomId} identity={identity} canGenerate={canGenerate} />
     </section>

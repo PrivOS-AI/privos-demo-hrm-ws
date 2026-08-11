@@ -4,6 +4,24 @@ This project follows [Semantic Versioning](https://semver.org/). Each marketplac
 must equal `privos-app.json.version` and `package.json.version`; change both release notes and metadata
 in one commit.
 
+## [2.7.0] - 2026-08-11
+
+### Changed
+
+- Removed frontend issuance of the installation agent bot's Hub credential
+  from the Bot workload tab: the `mcpapp.bot.issueCredential` call, its
+  `BOT_CREDENTIAL_ISSUE_DENIED`/`BOT_CREDENTIAL_ISSUE_DISABLED` error mapping,
+  and the `bot:credential:issue` optional permission are all gone. That tool
+  and scope are being removed from the Hub catalog — no app calls them any
+  more. Issuance now happens only in the Hub's own Admin > Apps > this app >
+  Settings, performed manually by a workspace admin; the tab explains this in
+  place of the old button.
+- Declared the reserved secret env var `PRIVOS_AGENT_BOT_CREDENTIAL`. The
+  backend (`mcp-message-handlers.ts`) reports whether it is configured
+  (`agentBotCredentialSet`, never the value) alongside the existing SMTP
+  secret check, demonstrating the correct consumption side: read from the
+  app's own environment, never received from a frontend call.
+
 ## [2.6.0] - 2026-08-11
 
 ### Added
