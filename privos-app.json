@@ -2,7 +2,7 @@
   "schemaVersion": 3,
   "kind": "mcp-app",
   "name": "ai.privos.mcp-app-demo",
-  "version": "2.5.0",
+  "version": "2.6.0",
   "title": "PrivOS Demo MCP App",
   "description": "Reference PrivOS MCP app demonstrating HR workflows, scoped workspace APIs, AI and sandbox controls, and license-aware features.",
   "icon": "/public/icon.svg",
@@ -48,6 +48,15 @@
       "feature": "agent.bot.identity",
       "reason": "Read safe identity for the installation bot only when it belongs to the exact approved Room.",
       "degradedBehavior": "The app cannot display the installation bot identity for this Room."
+    },
+    {
+      "scope": "bot:credential:issue",
+      "requirement": "optional",
+      "context": "workspace",
+      "executionContext": "user",
+      "feature": "agent.bot.credential",
+      "reason": "Issue the installation-owned agent bot's Hub API credential so an app backend can authenticate its own REST calls as that bot.",
+      "degradedBehavior": "The app cannot issue or rotate the installation bot's Hub credential."
     },
     {
       "scope": "lists:read",
@@ -111,6 +120,15 @@
       "feature": "sandbox.wake",
       "reason": "Wake the approved room sandbox and display its state.",
       "degradedBehavior": "Sandbox wake and state controls are unavailable."
+    },
+    {
+      "scope": "sandbox:generate",
+      "requirement": "optional",
+      "context": "room",
+      "executionContext": "user",
+      "feature": "sandbox.workload.generate",
+      "reason": "Start and poll a Sandbox generation as the current user, optionally selecting the installation-owned agent bot as executor, to demonstrate the room's Sandbox workload lifecycle.",
+      "degradedBehavior": "The Bot workload tab cannot start or poll a Sandbox attempt."
     },
     {
       "scope": "sandbox:ai-chat",

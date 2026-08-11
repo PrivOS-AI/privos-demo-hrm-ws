@@ -40,12 +40,18 @@ export async function restCall<T = any>(
 ): Promise<T> {
   const res = await app.rest({ method, path, query: opts?.query, body: opts?.body, timeoutMs: opts?.timeoutMs });
   const body: any = res?.body ?? res;
+  // Meteor's API.v1.failure(message) convention: the real reason travels in
+  // `body.error`. Surfacing it lets callers distinguish failure modes (e.g. an
+  // unprovisioned bot vs. a task already bound to a different executor)
+  // instead of a bare status code; safeFeatureError still strips it down to a
+  // generic message when it looks permission-related.
+  const detail = typeof body?.error === 'string' ? body.error : undefined;
   if (res?.statusCode && res.statusCode >= 400) {
     if (res.statusCode === 403) throw new OptionalFeatureUnavailableError();
-    throw new Error(`Request failed (${res.statusCode})`);
+    throw new Error(detail || `Request failed (${res.statusCode})`);
   }
   if (body && body.success === false) {
-    throw new Error('Request failed');
+    throw new Error(detail || 'Request failed');
   }
   return body as T;
 }

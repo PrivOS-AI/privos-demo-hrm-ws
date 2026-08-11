@@ -4,6 +4,34 @@ This project follows [Semantic Versioning](https://semver.org/). Each marketplac
 must equal `privos-app.json.version` and `package.json.version`; change both release notes and metadata
 in one commit.
 
+## [2.6.0] - 2026-08-11
+
+### Added
+
+- A Bot workload demo tab covering the installation agent bot's full
+  execution lifecycle: create the bot, join the current Room, issue its Hub
+  credential, then pick it (or the Room default bot) as the executor on
+  `agents.sandbox.generate-async`, poll the attempt, and see how a raised
+  question surfaces as a Room thread message that only a Room OWNER can
+  answer — `agents.sandbox.answer` is deliberately not exposed to apps, so
+  the panel only ever tells you to go look. The issued credential is never
+  rendered, logged, or persisted; the panel explains it belongs in the app
+  backend, not a browser.
+- An executor selector on the AI Chat tab. It also documents, and lets an
+  operator see for themselves, that an installation-owned agent bot can run
+  as a Sandbox executor but currently cannot be an AI Chat agent —
+  `ai-messages.send` resolves the agent's token from a `BotTokens` row, which
+  installation-owned bots don't have.
+- Optional approval declarations for `bot:credential:issue` and
+  `sandbox:generate`, each with independent degraded behavior.
+
+### Changed
+
+- `restCall` now surfaces the Hub's actual REST failure reason (`body.error`)
+  instead of a bare status code, so distinct failure modes — an unprovisioned
+  executor bot vs. a task already bound to a different one — are
+  distinguishable in the UI.
+
 ## [2.5.0] - 2026-08-09
 
 ### Added

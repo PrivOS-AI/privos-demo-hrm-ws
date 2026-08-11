@@ -6,7 +6,7 @@
  * Flow (all as the current user):
  *   0. (optional) app.uploadFile() -> { file: { _id } }                       [files:write]
  *   1. POST ai-messages.send { entityType:'room-chat', entityId:roomId, roomId,
- *      flowChatId:roomId, content, fileIds?, sessionId? } -> { aiMessage, sessionId }
+ *      flowChatId:roomId, content, fileIds?, sessionId?, botId? } -> { aiMessage, sessionId }
  *      (creates the session on first send; stages the worker job)            [sandbox:ai-chat:write]
  *   2. POST ai-messages.startGeneration { messageId: aiMessage._id }         [sandbox:ai-chat:write]
  *   3. GET  ai-messages.list?sessionId  (poll) -> messages w/ live content   [sandbox:ai-chat]
@@ -14,10 +14,16 @@
  *
  * Each AI message carries `content` (streamed text) plus `toolUses` — the
  * structured response blocks — which we render as cards + a JSON view.
+ *
+ * `botId` is optional and picks the agent that answers (see
+ * `ai-chat-executor-select.tsx` and `ai-chat-bot-selection.ts`): omitting it
+ * keeps the room-default-bot behavior byte-identical to before this existed.
  */
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { usePrivosApp, usePrivosContext } from '@privos_ai/app-react';
+import { usePrivosApp, usePrivosContext, parseToolResult } from '@privos_ai/app-react';
 import { restCall } from './privos-rest';
+import { buildSendMessageBody, isInstallationBotProvisioningError } from './ai-chat-bot-selection';
+import AiChatExecutorSelect from './ai-chat-executor-select';
 import MarkdownBlocks from './markdown-blocks';
 
 interface ToolUse {
@@ -101,7 +107,7 @@ function AssistantBlocks({ m }: { m: ChatMessage }) {
 
 export default function AiChatPanel() {
   const app = usePrivosApp();
-  const { roomId } = usePrivosContext();
+  const { roomId, effectiveScopes } = usePrivosContext();
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
@@ -121,6 +127,35 @@ export default function AiChatPanel() {
   // Mirror of currentAiIdRef existence, purely to drive the Stop button's
   // enabled state (a ref change doesn't re-render).
   const [hasInflight, setHasInflight] = useState(false);
+
+  // Executor selection (see ai-chat-executor-select.tsx). 'default' sends no
+  // botId at all — the exact pre-existing payload. The installation bot's
+  // identity is a best-effort lookup: if it hasn't joined this Room yet, or
+  // bot:identity:read isn't granted, only the default option is offered.
+  const [executor, setExecutor] = useState<'default' | 'installation'>('default');
+  const [botIdentity, setBotIdentity] = useState<{ botId: string; username: string } | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!roomId || effectiveScopes?.includes('bot:identity:read') !== true) return;
+    (async () => {
+      try {
+        const raw = await app.callServerTool({ name: 'mcpapp.bot.getCurrentRoomIdentity', arguments: {} });
+        const identity = parseToolResult(raw) as { botId?: string; username?: string };
+        if (!cancelled && identity?.botId && identity?.username) {
+          setBotIdentity({ botId: identity.botId, username: identity.username });
+        }
+      } catch {
+        // Expected when no installation bot exists yet, or it hasn't joined
+        // this Room — the selector simply omits the installation option.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [app, roomId, effectiveScopes]);
+
+  const selectedBotId = executor === 'installation' && botIdentity ? botIdentity.botId : undefined;
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
@@ -187,15 +222,13 @@ export default function AiChatPanel() {
     setHasInflight(false);
     try {
       const sent = await restCall<{ aiMessage?: { _id: string }; sessionId: string }>(app, 'POST', 'ai-messages.send', {
-        body: {
-          entityType: 'room-chat',
-          entityId: roomId,
+        body: buildSendMessageBody({
           roomId,
-          flowChatId: roomId,
           content: content || 'Summarise the attached file.',
-          ...(sentAttachment && { fileIds: [sentAttachment.fileId] }),
-          ...(sessionIdRef.current && { sessionId: sessionIdRef.current }),
-        },
+          fileId: sentAttachment?.fileId,
+          sessionId: sessionIdRef.current,
+          botId: selectedBotId,
+        }),
         timeoutMs: UPLOAD_TIMEOUT_MS,
       });
       sessionIdRef.current = sent.sessionId;
@@ -207,14 +240,21 @@ export default function AiChatPanel() {
       }
       await pollSession(sent.sessionId);
     } catch (err: any) {
-      setError(err?.message || 'Failed to send message.');
+      // The installation bot has no AI Chat token by design (see
+      // ai-chat-bot-selection.ts) — name that plainly instead of the raw
+      // Hub error, which is written for a developer, not this UI.
+      setError(
+        selectedBotId && isInstallationBotProvisioningError(err)
+          ? 'The installation bot has no AI Chat token yet — it can run as a Sandbox executor, but not as an AI Chat agent.'
+          : err?.message || 'Failed to send message.',
+      );
       setMessages((m) => m.filter((x) => !x.id.startsWith('tmp-')));
     } finally {
       setBusy(false);
       currentAiIdRef.current = null;
       setHasInflight(false);
     }
-  }, [app, roomId, input, attachment, busy, pollSession]);
+  }, [app, roomId, input, attachment, busy, pollSession, selectedBotId]);
 
   /** Stop the in-flight run: abort on the server, break the poll loop, and
    *  refresh the list once so the cancelled reply (with partial text) shows. */
@@ -249,6 +289,8 @@ export default function AiChatPanel() {
   return (
     <div className="container chat-container">
       <h1>AI Chat</h1>
+
+      <AiChatExecutorSelect identity={botIdentity} selected={executor} onChange={setExecutor} disabled={busy} />
 
       <div className="chat-log" ref={scrollRef}>
         {messages.length === 0 && !busy && (

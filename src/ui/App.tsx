@@ -14,8 +14,22 @@ import LicensePanel from './license-panel';
 import AppOwnedChatPanel from './app-owned-chat-panel';
 import AgentBotPanel from './agent-bot-panel';
 import EmbedsPanel from './embeds-panel';
+import BotWorkloadPanel from './bot-workload-panel';
 
-type Tab = 'identity' | 'info' | 'records' | 'license' | 'files' | 'chat' | 'poem' | 'history' | 'skills' | 'sandbox' | 'agent' | 'embeds';
+type Tab =
+  | 'identity'
+  | 'info'
+  | 'records'
+  | 'license'
+  | 'files'
+  | 'chat'
+  | 'poem'
+  | 'history'
+  | 'skills'
+  | 'sandbox'
+  | 'agent'
+  | 'embeds'
+  | 'workload';
 
 const TABS: { id: Tab; label: string; scope?: string; degradedBehavior?: string }[] = [
   { id: 'identity', label: 'Identity' },
@@ -31,6 +45,8 @@ const TABS: { id: Tab; label: string; scope?: string; degradedBehavior?: string 
   { id: 'agent', label: 'Agent bot' },
   // No scope: embedding is governed by the admin's per-app origin allowlist, not a grant.
   { id: 'embeds', label: 'Embeds' },
+  // No single scope: the panel itself shows granted/not-granted per lifecycle scope.
+  { id: 'workload', label: 'Bot workload' },
 ];
 
 function FeatureUnavailable({ text }: { text: string }) {
@@ -87,6 +103,7 @@ function ThemedApp() {
           {tab === 'sandbox' && <SandboxConnectPanel />}
           {tab === 'agent' && <AgentBotPanel />}
           {tab === 'embeds' && <EmbedsPanel />}
+          {tab === 'workload' && <BotWorkloadPanel />}
         </>
       )}
 
