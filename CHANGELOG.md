@@ -4,6 +4,21 @@ This project follows [Semantic Versioning](https://semver.org/). Each marketplac
 must equal `privos-app.json.version` and `package.json.version`; change both release notes and metadata
 in one commit.
 
+## [2.4.2] - 2026-08-11
+
+### Changed
+
+- The Embeds tab now renders its approved provider through `useProviderEmbed`
+  (`@privos_ai/app-react` ^0.4.0) instead of framing it directly. An app document runs in a
+  sandboxed opaque origin, where providers such as YouTube refuse to initialize, so an approved
+  origin still showed an empty box. The app now draws a placeholder and the Hub renders the
+  provider frame over it, outside the app sandbox, after re-authorizing the URL against the
+  administrator's approved list. The tab shows the live request state and, on refusal, its reason.
+- The undeclared-origin frame is unchanged and still framed by the app itself — it remains the
+  negative control that shows the Content-Security-Policy doing its job.
+- On a Hub that predates hoisted embeds the tab degrades to `unsupported` and keeps its own
+  placeholder; no new permission scope is requested and the declared `frame-src` is unchanged.
+
 ## [2.4.1] - 2026-08-10
 
 ### Added
