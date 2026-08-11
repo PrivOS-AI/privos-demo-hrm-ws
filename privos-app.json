@@ -264,13 +264,13 @@
     },
     {
       "key": "PRIVOS_AGENT_BOT_CREDENTIAL",
-      "description": "This app's installation agent bot's Hub API credential. Reserved key: issued and rotated only by a workspace admin from Admin > Apps > this app > Settings, never by this app.",
+      "description": "This app's agent bot Hub API credential. Issued and rotated only by a workspace admin from this app's settings page, never by this app.",
       "required": false,
       "secret": true
     },
     {
       "key": "PRIVOS_AGENT_BOT_USER_ID",
-      "description": "This app's installation agent bot's Hub user id, paired with PRIVOS_AGENT_BOT_CREDENTIAL for Hub REST authentication (x-user-id + x-auth-token). Reserved key: written only by a workspace admin from Admin > Apps > this app > Settings, never by this app.",
+      "description": "This app's agent bot Hub user id, paired with PRIVOS_AGENT_BOT_CREDENTIAL for REST auth. Written only by a workspace admin from this app's settings page.",
       "required": false,
       "secret": false
     }
