@@ -33,6 +33,39 @@ if (manifest.repository !== pkg.repository.url) {
   fail('Manifest repository differs from package.json.', 'Use the canonical GitHub repository URL in both files.');
 }
 
+// The marketplace build runs `npm ci` against the committed lockfile, so a lock that
+// disagrees with the app is a broken publication waiting to happen. It happened: the lock
+// sat at 2.5.0 through four releases and still linked two locally checked-out SDKs, and
+// nothing noticed until the marketplace's own AI review read it at submission time.
+const lock = JSON.parse(fs.readFileSync('package-lock.json', 'utf8')) as {
+  version?: string;
+  packages?: Record<string, { version?: string }>;
+};
+const lockRootVersions = [lock.version, lock.packages?.['']?.version];
+if (lockRootVersions.some((version) => version !== pkg.version)) {
+  fail(
+    `package-lock.json declares ${lockRootVersions.join(' / ')} but the app is ${pkg.version}.`,
+    'Run `npm install --package-lock-only` after every version bump and commit the lockfile.',
+  );
+}
+const localLinks = Object.keys(lock.packages ?? {}).filter((entry) => entry.startsWith('../'));
+if (localLinks.length) {
+  fail(
+    `package-lock.json links local checkouts: ${localLinks.join(', ')}.`,
+    'Depend on published package versions; a clean build cannot resolve a path outside the archive.',
+  );
+}
+
+// This repo's own rule, stated at the top of CHANGELOG.md: the listing version, both package
+// files and the release notes move in one commit. 2.9.0 shipped without an entry.
+const changelog = fs.existsSync('CHANGELOG.md') ? fs.readFileSync('CHANGELOG.md', 'utf8') : '';
+if (!changelog.includes(`## [${pkg.version}]`)) {
+  fail(
+    `CHANGELOG.md has no entry for ${pkg.version}.`,
+    'Add a `## [version] - date` section describing the release in the same commit as the bump.',
+  );
+}
+
 if (!pkg.dockerfilePath || !fs.existsSync(path.resolve(pkg.dockerfilePath))) {
   fail(`Dockerfile is missing at "${pkg.dockerfilePath || '<unset>'}".`, 'Set dockerfilePath and commit that file inside the source archive.');
 }
