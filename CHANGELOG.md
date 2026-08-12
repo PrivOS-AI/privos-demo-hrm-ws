@@ -4,6 +4,27 @@ This project follows [Semantic Versioning](https://semver.org/). Each marketplac
 must equal `privos-app.json.version` and `package.json.version`; change both release notes and metadata
 in one commit.
 
+## [2.9.0] - 2026-08-12
+
+### Changed
+
+- The records table pages and searches server-side through the Hub's
+  `items.query` API instead of reading a whole list into the browser. It takes a
+  window of twenty rows, fetches the next window by cursor, filters on the
+  server, and refreshes incrementally by asking only for what changed since the
+  last load and merging by id.
+- `lists:query` is declared as an OPTIONAL permission: an installation that has
+  not granted it keeps working through the previous route, which now answers
+  with at most 500 items — and the table says so rather than showing a silent
+  subset.
+
+### Fixed
+
+- `package-lock.json` claimed `2.5.0` while the app declared `2.9.0`, and it
+  carried two extraneous `../` links to a locally checked-out React SDK. The
+  publication build runs `npm ci` against that file. No resolved dependency
+  version changed.
+
 ## [2.8.0] - 2026-08-11
 
 ### Added
