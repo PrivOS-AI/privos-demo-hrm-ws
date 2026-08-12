@@ -63,7 +63,8 @@
       "context": "room",
       "executionContext": "user",
       "feature": "hr.records.query",
-      "reason": "Page and search HR records without reading the whole list."
+      "reason": "Page and search HR records without reading the whole list.",
+      "degradedBehavior": "The records table falls back to the unpaged list route, which returns at most 500 items and says so instead of showing a silent subset."
     },
     {
       "scope": "lists:write",
