@@ -30,5 +30,11 @@ jobs:
             sleep 1
           done
           docker exec reference-app sh -c '! command -v npm && ! command -v npx'
-          curl --fail --json '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}' \
-            http://127.0.0.1:3000/mcp
+          # An unauthenticated /mcp call must be REFUSED: every request needs a Hub-signed
+          # private dispatch assertion. This step used to assert a 200, the contract from
+          # before that guard existed, and had been failing ever since.
+          status=$(curl -s -o /tmp/mcp.json -w '%{http_code}' \
+            --json '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}' \
+            http://127.0.0.1:3000/mcp)
+          test "$status" = "403"
+          grep -q DISPATCH_ASSERTION_INVALID /tmp/mcp.json
