@@ -2,7 +2,7 @@
   "schemaVersion": 3,
   "kind": "mcp-app",
   "name": "ai.privos.mcp-app-demo",
-  "version": "2.10.0",
+  "version": "2.11.0",
   "title": "PrivOS Demo MCP App",
   "description": "Reference PrivOS MCP app demonstrating HR workflows, scoped workspace APIs, AI and sandbox controls, and license-aware features.",
   "icon": "/public/icon.svg",
@@ -21,15 +21,6 @@
       "executionContext": "both",
       "feature": "core.context",
       "reason": "Identify the approved installation and room so the dashboard can load safely."
-    },
-    {
-      "scope": "bot:agent:create",
-      "requirement": "optional",
-      "context": "workspace",
-      "executionContext": "user",
-      "feature": "agent.bot.create",
-      "reason": "Create one dedicated agent bot owned by this exact app installation.",
-      "degradedBehavior": "The app cannot create an installation-owned agent bot."
     },
     {
       "scope": "bot:room:join",
@@ -157,6 +148,10 @@
   "availabilityTier": "single",
   "capabilities": {
     "verifiedActor": true
+  },
+  "agentBot": {
+    "name": "PrivOS Demo Assistant",
+    "slug": "privos-demo-assistant"
   },
   "tools": [
     {

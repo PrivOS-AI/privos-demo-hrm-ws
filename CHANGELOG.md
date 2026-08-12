@@ -4,6 +4,19 @@ This project follows [Semantic Versioning](https://semver.org/). Each marketplac
 must equal `privos-app.json.version` and `package.json.version`; change both release notes and metadata
 in one commit.
 
+## [2.11.0] - 2026-08-12
+
+### Changed
+
+- **The workspace administrator creates the installation agent bot, not the app.** The app no
+  longer requests `bot:agent:create` — the scope no longer exists — and the Bot workload and
+  Installation agent bot panels no longer offer a Create button or ask for a name and username.
+  An app that can mint a workspace identity decides how it appears to the workspace, and the
+  administrator who has to issue that identity's credential could not create it, which is what
+  made "Issue" answer `BOT_AGENT_NOT_CONFIGURED` with nothing an admin could do about it.
+- **The bot's identity is declared in the manifest.** New `agentBot` field (`name`, `slug`): the
+  administrator authorizes the bot in Admin > Apps > Settings, they do not name it.
+
 ## [2.10.0] - 2026-08-12
 
 ### Fixed

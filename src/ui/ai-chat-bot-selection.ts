@@ -4,8 +4,8 @@
  *
  * Asymmetry this file exists to document (see `ai-chat-panel.tsx` and
  * `bot-workload-attempt-section.tsx` for the two surfaces named): an
- * installation-owned agent bot (created via `mcpapp.bot.createAgent` on the
- * Bot workload tab) CAN be selected as a Sandbox EXECUTOR on
+ * installation-owned agent bot (created by a workspace administrator in Admin >
+ * Apps > Settings) CAN be selected as a Sandbox EXECUTOR on
  * `agents.sandbox.generate-async` — it only needs an active bot-key push —
  * but it CANNOT currently be selected as an AI CHAT agent on
  * `ai-messages.send`. That call resolves the selected bot's token from a

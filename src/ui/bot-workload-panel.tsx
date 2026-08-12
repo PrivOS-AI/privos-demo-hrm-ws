@@ -30,11 +30,10 @@ type BotIdentity = {
   joined?: boolean;
 };
 
-type LifecycleAction = 'create' | 'join' | 'read';
+type LifecycleAction = 'join' | 'read';
 
 const LIFECYCLE_ERROR_MESSAGES: Record<string, string> = {
-  BOT_AGENT_CREATE_DENIED: 'Bot creation is not approved for this installation or user.',
-  BOT_AGENT_USERNAME_EXISTS: 'That username is already in use.',
+
   MCP_ROOM_SCOPE_DENIED: 'This action is not approved for the current Room.',
   BOT_NOT_MEMBER_OF_AUTHORIZED_ROOM: 'The bot has not joined the current Room yet — join it first.',
 };
@@ -49,13 +48,11 @@ export default function BotWorkloadPanel() {
   const app = usePrivosApp();
   const { roomId, effectiveScopes } = usePrivosContext();
 
-  const [username, setUsername] = useState('');
   const [identity, setIdentity] = useState<BotIdentity | null>(null);
   const [busy, setBusy] = useState<LifecycleAction | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const canCreate = effectiveScopes?.includes('bot:agent:create') === true;
   const canJoin = effectiveScopes?.includes('bot:room:join') === true;
   const canRead = effectiveScopes?.includes('bot:identity:read') === true;
   const canGenerate = effectiveScopes?.includes('sandbox:generate') === true;
@@ -79,18 +76,6 @@ export default function BotWorkloadPanel() {
     }
   }
 
-  async function createAgent() {
-    const name = username.trim() ? `Workload Demo (${username.trim()})` : 'Workload Demo Agent';
-    const result = await callTool<BotIdentity>('create', 'mcpapp.bot.createAgent', {
-      name,
-      username: username.trim(),
-      agentData: { purpose: 'Run and demonstrate Sandbox generation workloads for this installation.' },
-    });
-    if (!result) return;
-    setIdentity(result);
-    setNotice(result.created ? 'Installation agent bot created.' : 'This installation already owns that agent bot.');
-  }
-
   async function joinCurrentRoom() {
     const result = await callTool<BotIdentity>('join', 'mcpapp.bot.joinCurrentRoom', {});
     if (!result) return;
@@ -109,12 +94,13 @@ export default function BotWorkloadPanel() {
     <section className="container">
       <h1>Bot workload</h1>
       <p className="empty-text">
-        Lifecycle demo: create the installation bot, join it to this Room, read its identity,
-        then run it as a Sandbox executor below.
+        Lifecycle demo: join this installation's bot to this Room, read its identity, then run it
+        as a Sandbox executor below. The bot itself is created by a workspace administrator in
+        Admin &gt; Apps &gt; Settings, under the name and username this app's manifest declares —
+        an app cannot mint a workspace identity for itself.
       </p>
 
       <ul className="file-list" aria-label="Bot workload approval scopes">
-        <ScopeStatus scope="bot:agent:create" granted={canCreate} />
         <ScopeStatus scope="bot:room:join" granted={canJoin} />
         <ScopeStatus scope="bot:identity:read" granted={canRead} />
         <ScopeStatus scope="sandbox:generate" granted={canGenerate} />
@@ -123,24 +109,7 @@ export default function BotWorkloadPanel() {
       {error && <div className="error-message" role="alert">{error}</div>}
       {notice && <div className="items-count" role="status">{notice}</div>}
 
-      <div className="form-group">
-        <label htmlFor="workload-username">Unique username (for creation only)</label>
-        <input
-          id="workload-username"
-          value={username}
-          onChange={(event) => setUsername(event.target.value)}
-          placeholder="privos-workload-demo"
-          maxLength={100}
-          pattern="[A-Za-z0-9._-]+"
-          autoCapitalize="none"
-          disabled={busy !== null}
-        />
-      </div>
-
       <div className="form-actions">
-        <button type="button" className="btn-submit" onClick={createAgent} disabled={!canCreate || busy !== null || !username.trim()}>
-          {busy === 'create' ? 'Creating…' : 'Create bot'}
-        </button>
         <button type="button" onClick={joinCurrentRoom} disabled={!canJoin || busy !== null}>
           {busy === 'join' ? 'Joining…' : 'Join current Room'}
         </button>
