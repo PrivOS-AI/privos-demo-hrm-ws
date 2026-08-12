@@ -4,6 +4,24 @@ This project follows [Semantic Versioning](https://semver.org/). Each marketplac
 must equal `privos-app.json.version` and `package.json.version`; change both release notes and metadata
 in one commit.
 
+## [2.10.0] - 2026-08-12
+
+### Fixed
+
+- **An admin-approved provider embed now actually renders.** The Embeds panel asked for the
+  provider through `useProviderEmbed` (`@privos_ai/app-react` 0.4.0) instead of iframing it
+  itself: the app document is sandboxed without `allow-same-origin`, so every iframe it
+  creates inherits an opaque origin and YouTube refuses to initialize in it — approval alone
+  left an empty box. The host validates the URL's origin against the admin-approved list and
+  renders the frame outside this sandbox, over a placeholder the app owns.
+
+### Changed
+
+- The panel keeps a self-framed copy of the same approved provider next to the hosted one, so
+  the difference the hoisted path exists for is visible rather than described, and states the
+  host's decision (`requesting` / `granted` / `denied` + reason / `unsupported`) in words.
+- `@privos_ai/app-react` dev dependency `^0.3.0` → `^0.4.0`.
+
 ## [2.9.0] - 2026-08-12
 
 ### Changed
