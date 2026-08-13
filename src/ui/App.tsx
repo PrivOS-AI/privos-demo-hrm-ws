@@ -15,6 +15,7 @@ import AppOwnedChatPanel from './app-owned-chat-panel';
 import AgentBotPanel from './agent-bot-panel';
 import EmbedsPanel from './embeds-panel';
 import BotWorkloadPanel from './bot-workload-panel';
+import AssigneeDemoPanel from './assignee-demo-panel';
 
 type Tab =
   | 'identity'
@@ -29,7 +30,8 @@ type Tab =
   | 'sandbox'
   | 'agent'
   | 'embeds'
-  | 'workload';
+  | 'workload'
+  | 'assignees';
 
 const TABS: { id: Tab; label: string; scope?: string; degradedBehavior?: string }[] = [
   { id: 'identity', label: 'Identity' },
@@ -47,6 +49,7 @@ const TABS: { id: Tab; label: string; scope?: string; degradedBehavior?: string 
   { id: 'embeds', label: 'Embeds' },
   // No single scope: the panel itself shows granted/not-granted per lifecycle scope.
   { id: 'workload', label: 'Bot workload' },
+  { id: 'assignees', label: 'Isolated ASSIGNEE', scope: 'lists:write', degradedBehavior: 'This demo needs write access to create the isolated list and item.' },
 ];
 
 function FeatureUnavailable({ text }: { text: string }) {
@@ -104,6 +107,7 @@ function ThemedApp() {
           {tab === 'agent' && <AgentBotPanel />}
           {tab === 'embeds' && <EmbedsPanel />}
           {tab === 'workload' && <BotWorkloadPanel />}
+          {tab === 'assignees' && <AssigneeDemoPanel />}
         </>
       )}
 

@@ -17,6 +17,10 @@ in one commit.
 - Reference material for publishers: reacting to a coded Hub failure instead of parsing its
   message, and letting the server own how often a repair may run rather than keeping a local
   counter that any remount would forget.
+- **Isolated ASSIGNEE tab.** Demonstrates assigning several users at once to an item on an
+  isolated list, and names the field type that actually controls who sees the item: `ASSIGNEE`.
+  Docs elsewhere referring to `USER_SELECT` or `MEMBER_SELECT` describe field types the Hub does
+  not have, which is what made this look unsupported.
 
 ### Notes
 

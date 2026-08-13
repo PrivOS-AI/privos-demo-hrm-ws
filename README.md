@@ -96,6 +96,56 @@ See [`src/ui/agent-bot-panel.tsx`](src/ui/agent-bot-panel.tsx) for the three too
 [`privos-app.json`](privos-app.json) for their permission declarations, and
 [`SCOPES.md`](SCOPES.md) for the approval rationale and degraded behavior.
 
+## Isolated list, multi-user assignment demo
+
+The **Isolated ASSIGNEE** tab demonstrates assigning several users at once to an item on an
+isolated list. The field type that controls who can see an item is **`ASSIGNEE`**
+(`apps/meteor/server/core-typings/IList.ts` in the Hub) — some older docs name `USER_SELECT` or
+`MEMBER_SELECT` instead, but neither field type exists in the Hub; using either name will not
+create a working assignment field. One `ASSIGNEE` field accepts a bare user-id string, a `{ _id }`
+object, or an **array** of either, so a single field can hold several assignees
+(`getAssignedUserIds`, `apps/meteor/app/api/server/lib/isolated-list-item-filter.ts:23-41`).
+
+For an isolated list, the Hub shows an item only to the room owner/admin, the item's creator, and
+whoever is listed in its `ASSIGNEE` field(s) (same file, the visibility check that consumes
+`getAssignedUserIds`) — nobody else in the room. The demo runs, in order: `mcpapp.lists.create`
+(`isolatedList: true`, caller must be room owner/admin) → `mcpapp.lists.addField` (type
+`ASSIGNEE`) → `mcpapp.lists.createItem` → `mcpapp.lists.updateCustomField` (writes an array of
+user ids) → `mcpapp.lists.getItems` (reads the item back and confirms every assigned id was
+stored, not just the first one). See [`src/ui/assignee-demo-panel.tsx`](src/ui/assignee-demo-panel.tsx)
+for the calls and [`src/ui/assignee-demo-helpers.ts`](src/ui/assignee-demo-helpers.ts) for the
+pure id-list parsing tested in [`tests/assignee-demo-helpers.spec.ts`](tests/assignee-demo-helpers.spec.ts).
+
+Scope: only the already-declared `lists:write` (optional, room owner/admin for the isolated-list
+create step) and `lists:read` (required) — no new permission is requested.
+
+**Argument shapes — checked against the Hub's own tool schemas** in
+`apps/meteor/server/services/mcp-tool-handlers-lists.ts`:
+
+| Tool | Arguments |
+|------|-----------|
+| `mcpapp.lists.create` | `roomId`, `name`, `key?`, `description?`, `isolatedList?`, `fieldDefinitions[]`, `stages[]` |
+| `mcpapp.lists.addField` | `listId`, `name`, `type`, `fieldId?` |
+| `mcpapp.lists.createItem` | `listId`, **`title`** (not `name`), `description?`, `customFields[]`, `stageId?` |
+| `mcpapp.lists.updateCustomField` | `itemId`, `fieldId`, `value` |
+| `mcpapp.lists.getItems` | `listId`, `offset?`, `count?`, `sortBy?`, `sortOrder?`, `stageId?`, `customFieldFilters[]?` |
+
+The shapes come from the schema definitions; the end-to-end flow itself has **not** been run
+against a live Hub (this sandbox has none), so treat the response shapes — as opposed to the
+request shapes — as the part still worth confirming on a real installation.
+
+**Verify isolation with two accounts** (manual, needs a real Hub installation):
+
+1. As account A (room owner/admin), open this app in a Room and run the demo on the **Isolated
+   ASSIGNEE** tab, entering account A's and account B's user ids (each account's id is shown on
+   its own **Identity** tab).
+2. As account B, open the same list. The item should be visible — B is an assignee.
+3. As account C, a third room member who is not the room owner/admin, not the item's creator, and
+   not listed in the ASSIGNEE field, open the same list. The item should **not** be visible.
+4. Re-run `mcpapp.lists.updateCustomField` to remove C from nobody's assignment (or add C), and
+   confirm C's visibility flips accordingly — this is what proves the ASSIGNEE field, not room
+   membership, gates isolated-list item visibility.
+
 ## License behavior
 
 The manifest declares a Free tier (50 records) and Pro tier (5,000 records plus `bulk-export`).
