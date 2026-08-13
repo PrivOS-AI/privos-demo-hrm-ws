@@ -4,6 +4,24 @@ This project follows [Semantic Versioning](https://semver.org/). Each marketplac
 must equal `privos-app.json.version` and `package.json.version`; change both release notes and metadata
 in one commit.
 
+## [2.13.0] - 2026-08-13
+
+### Added
+
+- **Agent sets are first-class in the Skills tab.** The sandbox listing mixes standalone skills
+  with agent sets — a set installs as one unit into its own directory and is selected and removed
+  as a unit — so the panel shows them apart and saves both selections. Each array is the complete
+  desired state *for its own kind*: sending only one leaves the other alone, and sending an empty
+  one clears that kind, which for sets removes whole directories.
+- **Agent set upload tab**, gated on the new `sandbox:agent-sets:upload` scope. Preview an archive,
+  see what it contains, then commit the batch. A sample set is bundled with the app so the flow
+  needs no external file.
+- Reference material for publishers: the scope widens which paths an app may reach and is not the
+  authorisation — the Hub still requires the acting user to be a workspace admin, and records both
+  the user and the attested app as provenance. Archives travel base64 in JSON because the Hub
+  relays a REST call and never reassembles a multipart body. The commit is all-or-nothing over a
+  single-use session, so a failed confirm cannot be retried from its preview.
+
 ## [2.12.0] - 2026-08-13
 
 ### Added

@@ -7,6 +7,7 @@ import AiChatPanel from './ai-chat-panel';
 import AiPoemPanel from './ai-poem-panel';
 import AiHistoryPanel from './ai-history-panel';
 import SkillsPanel from './skills-panel';
+import AgentSetUploadPanel from './agent-set-upload-panel';
 import SandboxConnectPanel from './sandbox-connect-panel';
 import WhoamiPanel from './whoami-panel';
 import InfoPanel from './info-panel';
@@ -28,6 +29,7 @@ type Tab =
   | 'history'
   | 'skills'
   | 'sandbox'
+  | 'agentSets'
   | 'agent'
   | 'embeds'
   | 'workload'
@@ -44,6 +46,7 @@ const TABS: { id: Tab; label: string; scope?: string; degradedBehavior?: string 
   { id: 'history', label: 'AI History', scope: 'sandbox:ai-chat', degradedBehavior: 'Existing AI chat sessions are not displayed.' },
   { id: 'skills', label: 'Skills', scope: 'sandbox:skills:use', degradedBehavior: 'Sandbox skill controls are hidden.' },
   { id: 'sandbox', label: 'Sandbox', scope: 'sandbox:botkey:push', degradedBehavior: 'Sandbox connection controls are unavailable.' },
+  { id: 'agentSets', label: 'Agent sets', scope: 'sandbox:agent-sets:upload', degradedBehavior: 'Uploading agent sets into the workspace factory is disabled.' },
   { id: 'agent', label: 'Agent bot' },
   // No scope: embedding is governed by the admin's per-app origin allowlist, not a grant.
   { id: 'embeds', label: 'Embeds' },
@@ -95,6 +98,7 @@ function ThemedApp() {
       {(!activeDefinition.scope || (capabilityResolved && activeGranted)) && (
         <>
           {tab === 'identity' && <WhoamiPanel />}
+          {tab === 'agentSets' && <AgentSetUploadPanel />}
           {tab === 'info' && <InfoPanel />}
           {tab === 'records' && <HRManagementDashboard />}
           {tab === 'license' && <LicensePanel />}

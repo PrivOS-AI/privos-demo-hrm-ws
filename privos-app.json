@@ -2,7 +2,7 @@
   "schemaVersion": 3,
   "kind": "mcp-app",
   "name": "ai.privos.mcp-app-demo",
-  "version": "2.12.0",
+  "version": "2.13.0",
   "title": "PrivOS Demo MCP App",
   "description": "Reference PrivOS MCP app demonstrating HR workflows, scoped workspace APIs, AI and sandbox controls, and license-aware features.",
   "icon": "/public/icon.svg",
@@ -93,6 +93,15 @@
       "feature": "sandbox.skills",
       "reason": "Show and select the skills enabled in the room sandbox.",
       "degradedBehavior": "Sandbox skill controls are hidden."
+    },
+    {
+      "scope": "sandbox:agent-sets:upload",
+      "requirement": "optional",
+      "context": "room",
+      "executionContext": "user",
+      "feature": "sandbox.agent-sets.upload",
+      "reason": "Upload an agent set into the workspace factory on behalf of a workspace administrator.",
+      "degradedBehavior": "The app cannot upload agent sets; existing sets can still be selected for the room."
     },
     {
       "scope": "sandbox:botkey:push",
