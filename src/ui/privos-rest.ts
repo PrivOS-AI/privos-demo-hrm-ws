@@ -20,6 +20,26 @@ export class OptionalFeatureUnavailableError extends Error {
   }
 }
 
+/**
+ * A hub failure that carried a machine-readable code.
+ *
+ * The message is what a person reads; `code` is what the app branches on. They
+ * are kept apart on purpose — matching prose would break the moment the copy
+ * changes, and the hub's recoverable failures (a bot key the sandbox no longer
+ * holds, an automatic sync already spent) are exactly the ones an app should
+ * react to rather than merely display.
+ */
+export class PrivosRestError extends Error {
+  constructor(
+    message: string,
+    readonly statusCode?: number,
+    readonly code?: string,
+  ) {
+    super(message);
+    this.name = 'PrivosRestError';
+  }
+}
+
 export function safeFeatureError(error: unknown, fallback: string): string {
   if (error instanceof OptionalFeatureUnavailableError) return error.message;
   const message = error instanceof Error ? error.message : String(error || '');
@@ -46,12 +66,13 @@ export async function restCall<T = any>(
   // instead of a bare status code; safeFeatureError still strips it down to a
   // generic message when it looks permission-related.
   const detail = typeof body?.error === 'string' ? body.error : undefined;
+  const code = typeof body?.errorType === 'string' ? body.errorType : undefined;
   if (res?.statusCode && res.statusCode >= 400) {
     if (res.statusCode === 403) throw new OptionalFeatureUnavailableError();
-    throw new Error(detail || `Request failed (${res.statusCode})`);
+    throw new PrivosRestError(detail || `Request failed (${res.statusCode})`, res.statusCode, code);
   }
   if (body && body.success === false) {
-    throw new Error(detail || 'Request failed');
+    throw new PrivosRestError(detail || 'Request failed', res?.statusCode, code);
   }
   return body as T;
 }

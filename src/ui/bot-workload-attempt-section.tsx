@@ -24,6 +24,7 @@
 import { useState, useCallback, useRef } from 'react';
 import type { McpApp } from '@privos_ai/app-react';
 import { restCall } from './privos-rest';
+import { useBotKeyAutoPush } from './botkey-autopush-controller';
 import { buildGenerateAsyncPayload, ATTEMPT_TERMINAL } from './bot-workload-helpers';
 
 interface Identity {
@@ -57,6 +58,7 @@ export default function BotWorkloadAttemptSection({ app, roomId, identity, canGe
   const [attemptId, setAttemptId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const stoppedRef = useRef(false);
+  const { phase: autoPushPhase, message: autoPushMessage, recoverFromError } = useBotKeyAutoPush();
 
   const botId =
     executor === 'installation' ? identity?.botId : executor === 'custom' ? customBotId.trim() || undefined : undefined;
@@ -77,8 +79,16 @@ export default function BotWorkloadAttemptSection({ app, roomId, identity, canGe
         taskTitle: taskTitle.trim(),
         botId,
       });
-      const started = await restCall<{ attemptId: string; taskId: string }>(app, 'POST', 'agents.sandbox.generate-async', {
-        body: payload,
+      const startAttempt = () =>
+        restCall<{ attemptId: string; taskId: string }>(app, 'POST', 'agents.sandbox.generate-async', {
+          body: payload,
+        });
+      // The sandbox refuses an attempt when it holds a bot key the hub never
+      // pushed. That is repairable without the user leaving this tab, so try the
+      // one automatic sync we are entitled to and run the attempt again.
+      const started = await startAttempt().catch(async (err: unknown) => {
+        if (!(await recoverFromError(err))) throw err;
+        return startAttempt();
       });
       setAttemptId(started.attemptId);
       setStatus('running');
@@ -100,11 +110,11 @@ export default function BotWorkloadAttemptSection({ app, roomId, identity, canGe
       }
       setError('Timed out waiting for the attempt. It may still be waiting on a question in the Room thread.');
     } catch (err: any) {
-      setError(err?.message || 'Failed to run the attempt.');
+      setError(autoPushMessage && autoPushPhase === 'manual-required' ? autoPushMessage : err?.message || 'Failed to run the attempt.');
     } finally {
       setBusy(false);
     }
-  }, [app, roomId, prompt, taskId, taskTitle, botId, busy]);
+  }, [app, roomId, prompt, taskId, taskTitle, botId, busy, recoverFromError, autoPushMessage, autoPushPhase]);
 
   return (
     <div style={{ marginTop: 24, borderTop: '1px solid var(--border)', paddingTop: 16 }}>
@@ -173,6 +183,10 @@ export default function BotWorkloadAttemptSection({ app, roomId, identity, canGe
           {busy ? 'Running…' : 'Run generate-async'}
         </button>
       </div>
+
+      {autoPushPhase === 'running' && autoPushMessage && (
+        <div className="items-count" role="status">{autoPushMessage}</div>
+      )}
 
       {error && <div className="error-message" role="alert">{error}</div>}
 

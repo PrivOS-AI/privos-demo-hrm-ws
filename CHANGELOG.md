@@ -4,6 +4,28 @@ This project follows [Semantic Versioning](https://semver.org/). Each marketplac
 must equal `privos-app.json.version` and `package.json.version`; change both release notes and metadata
 in one commit.
 
+## [2.12.0] - 2026-08-13
+
+### Added
+
+- **The app re-syncs a rejected sandbox bot key by itself, once.** When a room's sandbox holds a
+  bot key the Hub never pushed, every agent call from this app fails and the only way out was for
+  the user to notice the Sandbox tab and press Connect. The app now reacts to the Hub's own
+  signals — the coded rejection on an attempt, or the freshness flag on the status the Sandbox
+  panel already reads — and asks for the one automatic re-sync the Hub allows, then retries the
+  call that failed.
+- Reference material for publishers: reacting to a coded Hub failure instead of parsing its
+  message, and letting the server own how often a repair may run rather than keeping a local
+  counter that any remount would forget.
+
+### Notes
+
+- No new permission. The automatic re-sync runs under the existing `sandbox:botkey:push` scope,
+  is a plain push, and never carries force-overwrite or bootstrap — those keep their manual
+  confirmation because they overwrite a workspace.
+- After a refusal the app stops asking and points at the manual Connect button; a successful
+  manual sync lets automation help again.
+
 ## [2.11.0] - 2026-08-12
 
 ### Changed

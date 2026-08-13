@@ -20,12 +20,17 @@
 import { useState, useEffect, useCallback } from 'react';
 import { usePrivosApp, usePrivosContext } from '@privos_ai/app-react';
 import { restCall } from './privos-rest';
+import { useBotKeyAutoPush } from './botkey-autopush-controller';
 
 interface BotKeyStatus {
   pushed: boolean;
   hasBot: boolean;
   hasSandbox: boolean;
   canPush: boolean;
+  /** Why the key is not usable. `sandbox-key-stale` = the sandbox holds a different one. */
+  reason?: 'no-record' | 'last-push-failed' | 'hash-mismatch' | 'config-missing' | 'sandbox-state-lost' | 'sandbox-key-stale';
+  /** The hub still has an automatic repair available for this key and divergence. */
+  autoPushEligible?: boolean;
   status?: 'success' | 'failed' | 'drift';
   pushedAt?: string;
   privosSandboxId?: string;
@@ -44,6 +49,7 @@ export default function SandboxConnectPanel() {
   const [pushedMsg, setPushedMsg] = useState<string | null>(null);
   const [waking, setWaking] = useState(false);
   const [vmState, setVmState] = useState<string | null>(null);
+  const { phase: autoPushPhase, message: autoPushMessage, autoPush, reset: resetAutoPush } = useBotKeyAutoPush();
 
   // Read the current provisioning / push status for this room.
   const loadStatus = useCallback(async () => {
@@ -64,6 +70,23 @@ export default function SandboxConnectPanel() {
 
   useEffect(() => { loadStatus(); }, [loadStatus]);
 
+  // Trigger B: the status read this panel already performs says the sandbox
+  // holds a different key and the hub still has its one automatic repair. Take
+  // it — this is the same reflex a chat turn has, minus the click. No polling
+  // of our own: this only ever runs off a status the panel loaded anyway.
+  useEffect(() => {
+    if (status?.reason !== 'sandbox-key-stale' || status?.autoPushEligible !== true) return;
+    let cancelled = false;
+    (async () => {
+      if (await autoPush()) {
+        if (!cancelled) await loadStatus();
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [status?.reason, status?.autoPushEligible, autoPush, loadStatus]);
+
   // Provision the project + push/refresh the bot key (room admin only).
   async function handlePush() {
     if (!roomId) return;
@@ -76,6 +99,8 @@ export default function SandboxConnectPanel() {
       );
       // Don't surface privosSandboxId — it's the internal board host, not user-facing.
       setPushedMsg('Connected — sandbox provisioned.');
+      // A person fixed it, so automation is allowed to help again.
+      resetAutoPush();
       await loadStatus();
     } catch (err: any) {
       // A non-admin / non-owner hits the server-side authorizePushBotKey check here.
@@ -124,6 +149,11 @@ export default function SandboxConnectPanel() {
 
       {error && <div className="error-message">{error}</div>}
       {pushedMsg && <div className="items-count">{pushedMsg}</div>}
+      {autoPushMessage && autoPushPhase !== 'idle' && (
+        <div className={autoPushPhase === 'manual-required' ? 'error-message' : 'items-count'} role="status">
+          {autoPushMessage}
+        </div>
+      )}
 
       {loading ? (
         <p className="loading-text">Loading sandbox status...</p>
