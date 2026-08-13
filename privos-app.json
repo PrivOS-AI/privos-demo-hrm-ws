@@ -97,7 +97,7 @@
     {
       "scope": "sandbox:agent-sets:upload",
       "requirement": "optional",
-      "context": "room",
+      "context": "workspace",
       "executionContext": "user",
       "feature": "sandbox.agent-sets.upload",
       "reason": "Upload an agent set into the workspace factory on behalf of a workspace administrator.",
