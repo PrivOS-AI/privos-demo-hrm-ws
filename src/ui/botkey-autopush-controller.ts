@@ -10,14 +10,15 @@
  * same reflex, under the same rules — it does not invent detection of its own:
  *
  *   - it reacts only to the hub's own signals (the coded rejection on an
- *     attempt, or `autoPushEligible` on the status read the panel already
- *     performs). Never a timer, never a poll of its own;
+ *     attempt, or a `sandbox-key-stale` reason on the status read the panel
+ *     already performs). Never a timer, never a poll of its own;
  *   - it asks for a *plain* sync (`auto: true`). Force-overwrite and bootstrap
  *     stay behind their manual confirmations, because those overwrite a
  *     workspace;
- *   - the hub decides how often: one automatic sync per key and divergence,
- *     claimed server-side. The cooldown here is the second belt — it stops this
- *     app from re-asking after a refusal even across component remounts.
+ *   - the hub decides whether: it refuses a repeat of a sync that already
+ *     failed for this same key. This app does not pre-check that — it asks and
+ *     honours the coded refusal. The cooldown here is the second belt, stopping
+ *     a re-ask after a refusal even across component remounts.
  */
 import { useCallback, useState } from 'react';
 import { usePrivosApp, usePrivosContext } from '@privos_ai/app-react';

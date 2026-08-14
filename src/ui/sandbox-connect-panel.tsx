@@ -29,8 +29,6 @@ interface BotKeyStatus {
   canPush: boolean;
   /** Why the key is not usable. `sandbox-key-stale` = the sandbox holds a different one. */
   reason?: 'no-record' | 'last-push-failed' | 'hash-mismatch' | 'config-missing' | 'sandbox-state-lost' | 'sandbox-key-stale';
-  /** The hub still has an automatic repair available for this key and divergence. */
-  autoPushEligible?: boolean;
   status?: 'success' | 'failed' | 'drift';
   pushedAt?: string;
   privosSandboxId?: string;
@@ -71,11 +69,16 @@ export default function SandboxConnectPanel() {
   useEffect(() => { loadStatus(); }, [loadStatus]);
 
   // Trigger B: the status read this panel already performs says the sandbox
-  // holds a different key and the hub still has its one automatic repair. Take
-  // it — this is the same reflex a chat turn has, minus the click. No polling
-  // of our own: this only ever runs off a status the panel loaded anyway.
+  // holds a different key. Take the repair — the same reflex a chat turn has,
+  // minus the click. No polling of our own: this only ever runs off a status
+  // the panel loaded anyway.
+  //
+  // No client-side eligibility pre-check. The hub used to publish
+  // `autoPushEligible` so a client could decide for itself; it no longer does,
+  // because the server owns that decision. We ask, and `autoPush` honours the
+  // coded refusal by falling back to the manual button.
   useEffect(() => {
-    if (status?.reason !== 'sandbox-key-stale' || status?.autoPushEligible !== true) return;
+    if (status?.reason !== 'sandbox-key-stale') return;
     let cancelled = false;
     (async () => {
       if (await autoPush()) {
@@ -85,7 +88,7 @@ export default function SandboxConnectPanel() {
     return () => {
       cancelled = true;
     };
-  }, [status?.reason, status?.autoPushEligible, autoPush, loadStatus]);
+  }, [status?.reason, autoPush, loadStatus]);
 
   // Provision the project + push/refresh the bot key (room admin only).
   async function handlePush() {
