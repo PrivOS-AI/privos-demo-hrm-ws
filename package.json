@@ -52,9 +52,11 @@
   },
   "scripts": {
     "build": "vite build && tsx scripts/generate-manifest.ts && npm run manifest:lint",
-    "dev": "PRIVOS_RUNTIME_MODE=development PRIVOS_ALLOW_LEGACY_RELAY_PAIRING=1 PRIVOS_TRANSPORT=relay PRIVOS_DEV_UI=1 tsx src/server.ts",
+    "dev": "PRIVOS_TRANSPORT=relay PRIVOS_DEV_UI=1 tsx src/server.ts",
     "start": "tsx src/server.ts",
-    "start:relay": "PRIVOS_RUNTIME_MODE=development PRIVOS_ALLOW_LEGACY_RELAY_PAIRING=1 PRIVOS_TRANSPORT=relay tsx src/server.ts",
+    "start:relay": "PRIVOS_TRANSPORT=relay tsx src/server.ts",
+    "pair:standalone": "tsx scripts/pair-standalone.ts",
+    "start:standalone": "NODE_ENV=production tsx src/server.ts",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "manifest:lint": "privos-app-lint privos-app.json",
@@ -64,7 +66,7 @@
     "docker:run": "docker run --rm --read-only --cap-drop ALL --security-opt no-new-privileges --pids-limit 100 --tmpfs /tmp -e PORT=3000 privos-mcp-app-demo:local"
   },
   "dependencies": {
-    "@privos_ai/app-server": "^0.5.0",
+    "@privos_ai/app-server": "^0.6.1",
     "dotenv": "^17.3.1",
     "tsx": "^4.0.0",
     "ws": "^8.21.0"

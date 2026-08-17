@@ -6,7 +6,7 @@ COPY . .
 RUN npm run build && npm prune --omit=dev
 
 FROM node:22-alpine AS runtime
-ENV NODE_ENV=production PRIVOS_RUNTIME_MODE=production PRIVOS_TRANSPORT=direct PORT=3000
+ENV NODE_ENV=production PORT=3000
 WORKDIR /app
 RUN rm -rf /usr/local/lib/node_modules/npm \
     && rm -f /usr/local/bin/npm /usr/local/bin/npx

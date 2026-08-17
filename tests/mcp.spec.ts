@@ -21,22 +21,40 @@ describe('JSON-RPC handlers', () => {
     expect(JSON.parse(result.content[0].text)).toEqual({ status: 'not-configured' });
   });
 
-  it('uses only a verified dispatch actor for backend identity', async () => {
+  it('uses only a verified actor for backend identity, regardless of transport', async () => {
     const unverified = await handleMcpMessage('tools/call', 3, { name: 'hr_whoami', arguments: {} });
     expect(JSON.parse(unverified.content[0].text)).toMatchObject({ verified: false });
-    const verified = await handleMcpMessage(
+
+    // Managed Direct HTTP: actor came from the Hub-embedded dispatch-assertion claim.
+    const verifiedManaged = await handleMcpMessage(
       'tools/call',
       4,
       { name: 'hr_whoami', arguments: { userToken: 'ignored-browser-secret' } },
-      { actor: { subject: 'user-1', username: 'alice', roomId: 'room-1' } },
+      { userId: 'user-1', username: 'alice', roomId: 'room-1', claims: Object.freeze({}), provenance: 'dispatch-assertion' },
     );
-    expect(JSON.parse(verified.content[0].text)).toMatchObject({
+    expect(JSON.parse(verifiedManaged.content[0].text)).toMatchObject({
       verified: true,
       userId: 'user-1',
       username: 'alice',
       roomId: 'room-1',
+      provenance: 'dispatch-assertion',
     });
-    expect(verified.content[0].text).not.toContain('ignored-browser-secret');
+    expect(verifiedManaged.content[0].text).not.toContain('ignored-browser-secret');
+
+    // Relay: actor came from a separately Hub-signed user token verified against the Hub JWKS.
+    const verifiedRelay = await handleMcpMessage(
+      'tools/call',
+      5,
+      { name: 'hr_whoami', arguments: {} },
+      { userId: 'user-2', username: 'bob', roomId: 'room-2', claims: Object.freeze({ sub: 'user-2' }), provenance: 'user-token' },
+    );
+    expect(JSON.parse(verifiedRelay.content[0].text)).toMatchObject({
+      verified: true,
+      userId: 'user-2',
+      username: 'bob',
+      roomId: 'room-2',
+      provenance: 'user-token',
+    });
   });
   it('calls the licensed tool on Pro', async () => {
     process.env.PRIVOS_APP_LICENSE = '{"tier":"pro","state":"active"}';

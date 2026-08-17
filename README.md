@@ -6,16 +6,27 @@ dispatch, the iframe host bridge, license-aware behavior, and reproducible Marke
 
 ## Runtime trust model
 
-Managed production installations do not use a pair URL, OAuth client secret, or browser user
-token. App Cluster mounts a per-installation Unix socket. `@privos_ai/app-server` creates an
-ephemeral P-256 DPoP key in memory, obtains short-lived sender-constrained workload tokens through
-the socket, and refreshes them without writing credentials to disk or environment variables.
+`@privos_ai/app-server`'s `resolveRuntimeMode()` picks exactly one of three modes, in this
+precedence, and never guesses:
 
-Hub-to-app `/mcp` requests travel through private Cluster dispatch and carry a short-lived signed
-assertion bound to the request body, installation, replica, receipt hash, and permission epoch.
-The backend actor for `hr_whoami` comes from that verified assertion. The iframe receives only
-non-secret host context and uses `app.rest()`, `app.uploadFile()`, and MCP tools through the Hub
-bridge as the current user.
+1. **`managed`** — a workload identity socket is present (App Cluster mounts one per
+   installation). No pair URL, OAuth client secret, or browser user token is ever used.
+2. **`standalone-production`** — a paired standalone identity file is present (see
+   [Standalone production](#standalone-production-self-hosted-against-a-standalone-hub) below).
+3. **`development`** — neither is present, and `NODE_ENV` is not `production`.
+
+Both a workload socket and a paired identity file present is a fatal startup error (stale state
+from a prior deployment mode, or a misconfigured host — never silently picked). `NODE_ENV=production`
+with neither is also a fatal startup error: there is no unsigned-production fallback in any mode.
+
+In `managed` mode, App Cluster mounts a per-installation Unix socket. `@privos_ai/app-server`
+creates an ephemeral P-256 DPoP key in memory, obtains short-lived sender-constrained workload
+tokens through the socket, and refreshes them without writing credentials to disk or environment
+variables. Hub-to-app `/mcp` requests travel through private Cluster dispatch and carry a
+short-lived signed assertion bound to the request body, installation, replica, receipt hash, and
+permission epoch. The backend actor for `hr_whoami` comes from that verified assertion. The iframe
+receives only non-secret host context and uses `app.rest()`, `app.uploadFile()`, and MCP tools
+through the Hub bridge as the current user.
 
 Production accepts these non-secret values from the platform:
 
@@ -36,21 +47,23 @@ cp .env.example .env
 npm run dev
 ```
 
-`npm run dev` explicitly enables the legacy relay pairing path for local development. Obtain a
-pairing URL from PrivOS Admin and paste it into the prompt. Ignored `.env` storage and OAuth client
-credentials are permitted only in this mode; the relay client refuses them when
-`NODE_ENV=production` or `PRIVOS_RUNTIME_MODE` is not `development`.
+`npm run dev` resolves to `development` mode (no workload socket, no paired identity file) and
+connects over the Relay WebSocket. Obtain a pairing URL from PrivOS Admin and paste it into the
+prompt; credentials are cached to `.env` for the next run. This relaxed-compatibility path — an
+unverified `hr_whoami` actor, credentials cached to disk — is only ever reachable when
+`NODE_ENV` is not `production`; the SDK's mode resolver refuses `development` outright otherwise.
 
 The Vite UI defaults to `http://localhost:5179`. `DEV_TUNNEL=cloudflared` is optional when the
 browser displaying Hub is on another machine.
 
 ## Managed direct runtime
 
-The Marketplace image starts direct transport by default:
+The Marketplace image starts Direct HTTP transport by default (`managed` mode once the platform
+mounts `PRIVOS_WORKLOAD_SOCKET`; falls back to `development` mode locally when it isn't mounted):
 
 ```bash
 npm run build
-PRIVOS_RUNTIME_MODE=development PORT=3000 npm start
+PORT=3000 npm start
 curl http://127.0.0.1:3000/health
 curl http://127.0.0.1:3000/ready
 curl http://127.0.0.1:3000/.well-known/mcp/manifest.json
@@ -60,6 +73,106 @@ Development compatibility reports manifest-verified readiness without a broker. 
 `/health` only proves the process is alive; `/ready` returns 200 only after the manifest is valid,
 workload identity is paired, and the current receipt/epoch is active. A public or unsigned
 production `POST /mcp` returns 403.
+
+## Standalone production (self-hosted against a standalone hub)
+
+A publisher can also run this exact app against a portal-less, self-hosted Hub — same manifest,
+same tools, same permission contract as a Marketplace install, but the app pairs directly with the
+Hub over the Relay WebSocket instead of App Cluster mounting a socket. Direct HTTP `/mcp` has no
+trust source in this mode and always returns 403 (`DISPATCH_ASSERTION_INVALID`); every MCP
+dispatch rides the Relay connection with a mandatory Hub-signed assertion.
+
+### Pair once
+
+```bash
+npm run pair:standalone
+```
+
+Enter the pairing URL the Hub operator gives you. On success the identity file is written to
+`./privos-standalone-identity.json` (override with `PRIVOS_STANDALONE_IDENTITY_FILE`) at mode
+`0600`, and the Hub's fingerprint is printed:
+
+```
+PrivOS Hub fingerprint: SHA256:<43-char base64url> — verify this out-of-band before trusting dispatch from this Hub.
+```
+
+**Verify this fingerprint out-of-band** — over a channel other than the one that gave you the
+pairing URL (a phone call, a separately-verified chat, the operator's own documentation) — before
+running `start:standalone`. The fingerprint is the same SSH-host-key-style trust-on-first-use
+model as `ssh` printing a host key: a compromised pairing URL could otherwise hand you a Hub
+that signs dispatch you'd wrongly trust.
+
+### Identity file handling
+
+The identity file is the sole source of Relay OAuth credentials and Hub dispatch trust for this
+mode — treat it like an SSH private key:
+
+- Back it up. Losing it means re-pairing (a new pairing URL from the Hub operator); there is no
+  recovery path from the file alone.
+- Never commit it, `docker cp` it into an image, or log its contents. `scripts/package-source.sh`
+  already refuses to package any `.env*` / credential-like file; keep this file out of the
+  Marketplace source archive the same way.
+- A re-pair attempt over an existing file refuses (`IDENTITY_FILE_ALREADY_EXISTS`) rather than
+  silently overwriting it — remove the file first if you intend to re-pair from scratch.
+
+### Run
+
+```bash
+npm run start:standalone
+curl http://127.0.0.1:3000/health
+curl http://127.0.0.1:3000/ready
+```
+
+`/ready` reports `not_ready` (503) with a specific `reason` — `IDENTITY_NOT_LOADED`,
+`RELAY_NOT_AUTHENTICATED`, `MANIFEST_LINT_INVALID`, or `MANIFEST_DRIFT` — until the identity
+loads, the Relay connection authenticates, and the locally-built manifest's canonical digest still
+matches the digest pinned at pairing time.
+
+### Verified caller identity over Relay
+
+The Relay runtime-dispatch assertion (`SELF_HOSTED_LOCAL` / `PUBLISHER_HOSTED`) proves *which
+installation* dispatched a call, but — unlike the managed Cluster assertion — carries no embedded
+actor claim. `connectRelay` independently verifies a SEPARATE Hub-signed RS256 user token
+(`_meta.privosUser.userToken`) against the Hub's published JWKS
+(`/.well-known/mcp-apps/jwks.json`) and cross-binds its room claim to the already-verified dispatch
+`roomId`. This is wired in automatically (`hubUserTokenAuth: 'auto'`, the default) whenever a Hub
+dispatch trust is configured — true here, since `start:standalone` pins the paired identity's
+trust — so `hr_whoami` reports a verified actor for `standalone-production` exactly like it does
+for `managed`, with `provenance: 'user-token'` distinguishing it from the managed path's
+`'dispatch-assertion'`.
+
+This verification requires the app host to reach the Hub's JWKS endpoint over the network. A
+fetch failure or timeout degrades that request's actor to unavailable (`hr_whoami` reports
+`verified: false`) — it never crashes dispatch and never falls back to the plain, unverified
+`_meta.privosUser.userId` / `username` fields that ride alongside the token.
+
+`npm run dev` / `npm run start:relay` (`development` mode) intentionally configure no Hub dispatch
+trust at all (see [Local development](#local-development) above), so this auto-wiring does not
+apply there and `hr_whoami` stays unverified for every relay-transported call in that mode — by
+design, not a gap.
+
+### Rotation
+
+The Hub can push secret rotation, trust rotation (re-key or a generation/manifest update), and
+capability changes over the same authenticated Relay connection, each as an ES256-signed control
+notification verified against the identity file's *currently* pinned Hub key before it is applied.
+No operator action is required; the identity file is rewritten atomically (temp file + rename) in
+place.
+
+### Upgrade path (manifest changes)
+
+`/ready` returns `MANIFEST_DRIFT` when the locally-built `privos-app.json` no longer matches the
+canonical manifest digest pinned at pairing — this is the standalone analogue of the managed
+image-label digest check. A manifest change (new tool, new permission, new env declaration) needs
+re-approval: the Hub operator re-reviews the new manifest and pushes a trust rotation carrying the
+new digest before `/ready` goes green again. There is no way to silently start serving traffic
+under a manifest the Hub never approved.
+
+Every signed exchange in this mode — dispatch assertions and control notifications alike — is
+capped at a 30-second signature lifetime with zero verifier headroom (`exp - iat <= 30`, hard
+capped even if the Hub asked for more). NTP-synchronized clocks on both the Hub and this app are a
+hard requirement, not an optimization; `/ready`'s `RELAY_NOT_AUTHENTICATED` reason is the
+observable symptom of clock skew large enough to fail verification.
 
 ## Permission contract
 
@@ -155,7 +268,7 @@ license degrades to Free without deleting records.
 Local Pro test:
 
 ```bash
-PRIVOS_RUNTIME_MODE=development PRIVOS_APP_LICENSE='{"tier":"pro","state":"active"}' npm start
+PRIVOS_APP_LICENSE='{"tier":"pro","state":"active"}' npm start
 ```
 
 ## Verification

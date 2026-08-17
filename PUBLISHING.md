@@ -18,6 +18,16 @@ Decide the version first. `privos-app.json:version`, `package.json:version`, and
 the `semver` you post when creating the version must all be the same string, or
 version creation is refused.
 
+**A Marketplace listing and a standalone install run the exact same manifest.**
+Nothing below is specific to the managed Marketplace runtime: `privos-app.json`
+is the one reviewed manifest for both a `managed` install (App Cluster) and a
+`standalone-production` install (self-hosted against a portal-less Hub, see
+[README.md § Standalone production](README.md#standalone-production-self-hosted-against-a-standalone-hub)).
+A standalone Hub pins the same canonical manifest digest this pipeline
+computes at pairing time, and `/ready` refuses to serve once the local
+manifest drifts from it — the standalone analogue of this pipeline's
+digest-pinned image label.
+
 ---
 
 ## 1. Regenerate and lint the manifest

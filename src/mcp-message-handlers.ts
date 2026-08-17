@@ -8,16 +8,19 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'node:url';
 
-import { getPlatformContext, publicUrlFor } from '@privos_ai/app-server';
+import { getPlatformContext, publicUrlFor, type VerifiedActor } from '@privos_ai/app-server';
 
 import _pkg from '../privos-app.json';
+import { getAppIconDataUri } from './app-icon';
 import { createLicenseGuard } from './license';
 import { checkAgentBotCredential } from './agent-bot-credential-check';
 const pkg = _pkg as Record<string, any>;
 const moduleDir = path.dirname(fileURLToPath(import.meta.url));
 const TOOL_NAME = 'hr_management_dashboard';
-// Pure data (no UI) tool: returns the actor carried by the body-bound, Hub-signed
-// private dispatch assertion verified before the request reaches this handler.
+// Pure data (no UI) tool: returns the SDK-verified caller actor — Managed Direct
+// HTTP names it in the body-bound Hub dispatch assertion; Relay names it via a
+// separately Hub-signed user token verified against the Hub's JWKS. See
+// `handleWhoami` and `handleMcpMessage`'s `actor` parameter doc below.
 const WHOAMI_TOOL = 'hr_whoami';
 const BULK_EXPORT_TOOL = 'hr_bulk_export';
 // Pure data (no UI) tool: proves the configured agent bot credential actually
@@ -33,16 +36,7 @@ const UI_DECLARED_CSP: Record<string, string[]> | undefined = (pkg.tools as any[
 	(tool) => tool?.ui?.resourceUri === UI_RESOURCE_URI,
 )?.ui?.csp;
 
-/** Read icon as data URI from package.json icon path */
-function getIconDataUri(): string | undefined {
-	const iconPath = pkg.icon?.startsWith('/') ? path.join(moduleDir, '..', pkg.icon) : undefined;
-	if (!iconPath || !fs.existsSync(iconPath)) return undefined;
-	const ext = path.extname(iconPath).slice(1);
-	const mime = ext === 'svg' ? 'image/svg+xml' : `image/${ext}`;
-	const data = fs.readFileSync(iconPath).toString('base64');
-	return `data:${mime};base64,${data}`;
-}
-const appIcon = getIconDataUri();
+const appIcon = getAppIconDataUri();
 
 /** Cache the built UI HTML — invalidated when dist changes (dev watch mode) */
 let cachedUiHtml: string | null = null;
@@ -64,12 +58,28 @@ export function invalidateUiCache(): void {
 	cachedUiHtml = null;
 }
 
-/** Handle an incoming MCP JSON-RPC request and return the result */
+/**
+ * Handle an incoming MCP JSON-RPC request and return the result.
+ *
+ * `actor` is the SDK's unified {@link VerifiedActor} — the same shape for
+ * both transports, distinguished only by `actor.provenance`:
+ *   - `'dispatch-assertion'` — Managed Direct HTTP; the Hub embedded the
+ *     actor claim directly in the body-bound Cluster dispatch assertion
+ *     verified by `verifyInboundDispatch` before this call.
+ *   - `'user-token'` — Relay (`standalone-production`, and `development`
+ *     whenever a Hub dispatch trust is configured); the SDK independently
+ *     verified a separate Hub-signed RS256 user JWT against the Hub's JWKS
+ *     and cross-bound it to the already-verified dispatch `roomId`.
+ * `undefined` means no verified caller identity is available for this
+ * request (no token was presented, the token was invalid, or JWKS
+ * verification failed) — callers must treat that as "unknown", never fall
+ * back to any unverified out-of-band field.
+ */
 export async function handleMcpMessage(
 	method: string,
 	_id: number,
 	params: any,
-	dispatch?: { actor?: { subject: string; username?: string; roomId?: string } },
+	actor?: VerifiedActor,
 ): Promise<any> {
 	switch (method) {
 		case 'initialize':
@@ -155,7 +165,7 @@ export async function handleMcpMessage(
 				return { content: [{ type: 'text', text: JSON.stringify({ exported: records.length, records }) }] };
 			}
 			if (params?.name === WHOAMI_TOOL) {
-				return handleWhoami(dispatch?.actor);
+				return handleWhoami(actor);
 			}
 			if (params?.name === CREDENTIAL_CHECK_TOOL) {
 				return { content: [{ type: 'text', text: JSON.stringify(await checkAgentBotCredential()) }] };
@@ -195,20 +205,30 @@ export async function handleMcpMessage(
 /**
  * Backend handler for the `hr_whoami` tool.
  *
- * Production identity comes from the body-bound Hub dispatch assertion verified
- * by the workload SDK before this handler runs. The iframe never receives or
- * forwards a bearer/user token.
+ * `actor` is only ever the SDK-verified {@link VerifiedActor} the caller
+ * (`http-server.ts` for Managed Direct HTTP, `relay-transport.ts` for Relay)
+ * forwarded from `runtime-identity.ts` / `context.actor`. This function never
+ * reads any plain, unverified caller-identity field (e.g. request
+ * `_meta.privosUser.userId`) — those ride alongside the signed token but are
+ * not proof of anything on their own, and there is intentionally no fallback
+ * to them here. The iframe never receives or forwards a bearer/user token.
  */
-async function handleWhoami(actor?: { subject: string; username?: string; roomId?: string }): Promise<any> {
+async function handleWhoami(actor?: VerifiedActor): Promise<any> {
 	const wrap = (obj: Record<string, any>) => ({ content: [{ type: 'text', text: JSON.stringify(obj) }] });
-	if (!actor) return wrap({ verified: false, error: 'Verified backend actor is unavailable in relay development compatibility mode.' });
-	const username = actor.username || actor.subject;
+	if (!actor) {
+		return wrap({
+			verified: false,
+			error: 'No verified caller identity is available for this request (no token presented, or verification failed).',
+		});
+	}
+	const username = actor.username || actor.userId;
 	return wrap({
 		verified: true,
 		username,
-		userId: actor.subject,
+		userId: actor.userId,
 		roomId: actor.roomId,
-		message: `Backend verified this request came from ${username} (${actor.subject}).`,
+		provenance: actor.provenance,
+		message: `Backend verified this request came from ${username} (${actor.userId}) via ${actor.provenance}.`,
 		platform: describePlatformEnvironment(),
 	});
 }

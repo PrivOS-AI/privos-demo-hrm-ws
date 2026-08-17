@@ -188,7 +188,6 @@ let harness: Harness | undefined;
 afterEach(async () => {
   await harness?.close();
   harness = undefined;
-  delete process.env.PRIVOS_RUNTIME_MODE;
   delete process.env.NODE_ENV;
   delete process.env.PRIVOS_WORKLOAD_SOCKET;
   vi.restoreAllMocks();
@@ -198,26 +197,24 @@ afterEach(async () => {
 describe('App Library generation runtime', () => {
   it('reports ready once it pairs with a node that attested a generation', async () => {
     harness = await startNodeHarness();
-    process.env.PRIVOS_RUNTIME_MODE = 'production';
     process.env.PRIVOS_WORKLOAD_SOCKET = harness.socketPath;
 
     const { getEffectiveCapabilities, runtimeReadiness } = await import('../src/runtime-identity');
     await getEffectiveCapabilities();
 
-    expect(runtimeReadiness()).toMatchObject({
+    await expect(runtimeReadiness()).resolves.toMatchObject({
       processRunning: true,
       manifestVerified: true,
       identityPaired: true,
       activeAuthorization: true,
-      mode: 'production-workload',
+      mode: 'managed',
       grantEpoch: AUTHORIZATION_EPOCH,
     });
-    expect(runtimeReadiness().reason).toBeUndefined();
+    expect((await runtimeReadiness()).reason).toBeUndefined();
   });
 
   it('accepts a dispatch the Hub routed through the cluster', async () => {
     harness = await startNodeHarness();
-    process.env.PRIVOS_RUNTIME_MODE = 'production';
     process.env.PRIVOS_WORKLOAD_SOCKET = harness.socketPath;
 
     const { getEffectiveCapabilities, verifyInboundDispatch } = await import('../src/runtime-identity');
@@ -231,7 +228,6 @@ describe('App Library generation runtime', () => {
 
   it('surfaces the acting user the Hub named, and reports whoami as verified', async () => {
     harness = await startNodeHarness();
-    process.env.PRIVOS_RUNTIME_MODE = 'production';
     process.env.PRIVOS_WORKLOAD_SOCKET = harness.socketPath;
 
     const { getEffectiveCapabilities, verifyInboundDispatch } = await import('../src/runtime-identity');
@@ -241,13 +237,16 @@ describe('App Library generation runtime', () => {
     const actor = { subject: 'user-1', username: 'techcomthanh', roomId: 'room-1' };
 
     const dispatch = await verifyInboundDispatch(body, clusterDispatchAssertion(body, { actor }));
-    expect(dispatch).toMatchObject({ actor });
+    expect(dispatch).toMatchObject({
+      actor: { userId: 'user-1', username: 'techcomthanh', roomId: 'room-1', provenance: 'dispatch-assertion' },
+    });
 
-    const result: any = await handleMcpMessage('tools/call', 1, body.params, dispatch);
+    const result: any = await handleMcpMessage('tools/call', 1, body.params, dispatch?.actor);
     expect(JSON.parse(result.content[0].text)).toMatchObject({
       verified: true,
       username: 'techcomthanh',
       userId: 'user-1',
+      provenance: 'dispatch-assertion',
     });
   });
 
@@ -255,7 +254,6 @@ describe('App Library generation runtime', () => {
     // An agent-initiated dispatch carries none, and so does any Hub that
     // predates the claim. Whoami degrades; nothing throws.
     harness = await startNodeHarness();
-    process.env.PRIVOS_RUNTIME_MODE = 'production';
     process.env.PRIVOS_WORKLOAD_SOCKET = harness.socketPath;
 
     const { getEffectiveCapabilities, verifyInboundDispatch } = await import('../src/runtime-identity');
@@ -266,13 +264,12 @@ describe('App Library generation runtime', () => {
     const dispatch = await verifyInboundDispatch(body, clusterDispatchAssertion(body));
     expect(dispatch).not.toHaveProperty('actor');
 
-    const result: any = await handleMcpMessage('tools/call', 1, body.params, dispatch);
+    const result: any = await handleMcpMessage('tools/call', 1, body.params, dispatch?.actor);
     expect(JSON.parse(result.content[0].text)).toMatchObject({ verified: false });
   });
 
   it('refuses a dispatch bound to a superseded authorization epoch', async () => {
     harness = await startNodeHarness();
-    process.env.PRIVOS_RUNTIME_MODE = 'production';
     process.env.PRIVOS_WORKLOAD_SOCKET = harness.socketPath;
 
     const { getEffectiveCapabilities, verifyInboundDispatch } = await import('../src/runtime-identity');
