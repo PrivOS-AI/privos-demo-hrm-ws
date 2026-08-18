@@ -95,6 +95,9 @@ async function main(): Promise<void> {
 }
 
 main().catch((err) => {
-	console.error('Pairing failed:', err instanceof Error ? err.message : err);
+	// The SDK already labels its own connection failures "Pairing failed"; drop that
+	// prefix rather than printing it twice.
+	const reason = String(err instanceof Error ? err.message : err).replace(/^Pairing failed: /, '');
+	console.error(`\nPairing failed: ${reason}`);
 	process.exit(1);
 });
