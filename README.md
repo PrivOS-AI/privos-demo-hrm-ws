@@ -82,25 +82,41 @@ Hub over the Relay WebSocket instead of App Cluster mounting a socket. Direct HT
 trust source in this mode and always returns 403 (`DISPATCH_ASSERTION_INVALID`); every MCP
 dispatch rides the Relay connection with a mandatory Hub-signed assertion.
 
-### Pair once
+### Pair, twice
 
 ```bash
-npm run pair:standalone
+npm run pair     # or: pnpm pair
 ```
 
-Enter the pairing URL the Hub operator gives you. On success the identity file is written to
-`./privos-standalone-identity.json` (override with `PRIVOS_STANDALONE_IDENTITY_FILE`) at mode
-`0600`, and the Hub's fingerprint is printed:
+The command asks for the one-time pairing URL the Hub operator gives you — it takes no arguments,
+so the URL never lands in your shell history. It then announces `privos-app.json` over the pairing
+socket, which means no admin ever handles the manifest file: the app states what it wants, and an
+admin decides what it gets.
+
+Run it **twice**, because the two runs mean different things:
+
+1. The first run REGISTERS the app. The Hub stores the announced contract, grants nothing, and
+   reports `awaitingApproval`. No identity file is written and the app does not start — dispatch
+   trust belongs to the generation an approved permission ceiling creates, and there is nothing
+   to run until then. Approve the declared permissions in Hub Admin > Apps.
+2. Run it again with a fresh pairing URL from that app's own settings. The Hub re-hands the same
+   credentials plus its dispatch trust, the identity file is written, and **the app starts
+   automatically** — `pair` continues into `start:standalone` through whichever package manager
+   you invoked it with, so there is no second command to remember.
+
+The identity file lands at `./privos-standalone-identity.json` (override with
+`PRIVOS_STANDALONE_IDENTITY_FILE`) at mode `0600`, and the Hub's fingerprint is printed:
 
 ```
 PrivOS Hub fingerprint: SHA256:<43-char base64url> — verify this out-of-band before trusting dispatch from this Hub.
 ```
 
 **Verify this fingerprint out-of-band** — over a channel other than the one that gave you the
-pairing URL (a phone call, a separately-verified chat, the operator's own documentation) — before
-running `start:standalone`. The fingerprint is the same SSH-host-key-style trust-on-first-use
-model as `ssh` printing a host key: a compromised pairing URL could otherwise hand you a Hub
-that signs dispatch you'd wrongly trust.
+pairing URL (a phone call, a separately-verified chat, the operator's own documentation). The
+fingerprint is the same SSH-host-key-style trust-on-first-use model as `ssh` printing a host key:
+a compromised pairing URL could otherwise hand you a Hub that signs dispatch you'd wrongly trust.
+Because the second `pair` run starts the app for itself, verify the fingerprint the moment it is
+printed and stop the process if it does not match.
 
 ### Identity file handling
 
@@ -116,6 +132,9 @@ mode — treat it like an SSH private key:
   silently overwriting it — remove the file first if you intend to re-pair from scratch.
 
 ### Run
+
+The second `pair` run already started the app. Every later start — after a reboot, a redeploy, or
+any ordinary restart — uses the identity file that pairing wrote, and needs no pairing URL:
 
 ```bash
 npm run start:standalone
