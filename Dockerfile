@@ -1,6 +1,9 @@
 FROM node:22-alpine AS build
 WORKDIR /app
 COPY package.json package-lock.json ./
+# Vendored SDK tarball (dev channel until the serveApp SDK is published; final
+# publish swaps this back to a registry semver).
+COPY vendor/privos_ai-app-server-0.7.0.tgz ./vendor/privos_ai-app-server-0.7.0.tgz
 RUN npm ci
 COPY . .
 RUN npm run build && npm prune --omit=dev

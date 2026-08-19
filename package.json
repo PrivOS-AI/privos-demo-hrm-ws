@@ -54,9 +54,9 @@
     "build": "vite build && tsx scripts/generate-manifest.ts && npm run manifest:lint",
     "dev": "PRIVOS_TRANSPORT=relay PRIVOS_DEV_UI=1 tsx src/server.ts",
     "start": "tsx src/server.ts",
-    "start:relay": "PRIVOS_TRANSPORT=relay tsx src/server.ts",
     "pair": "tsx scripts/pair.ts",
-    "start:standalone": "NODE_ENV=production tsx src/server.ts",
+    "start:relay": "PRIVOS_TRANSPORT=relay npm start",
+    "start:standalone": "NODE_ENV=production npm start",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "manifest:lint": "privos-app-lint privos-app.json",
@@ -66,13 +66,14 @@
     "docker:run": "docker run --rm --read-only --cap-drop ALL --security-opt no-new-privileges --pids-limit 100 --tmpfs /tmp -e PORT=3000 privos-mcp-app-demo:local"
   },
   "dependencies": {
-    "@privos_ai/app-server": "^0.6.2",
+    "@privos_ai/app-server": "file:vendor/privos_ai-app-server-0.7.0.tgz",
     "dotenv": "^17.3.1",
     "tsx": "^4.0.0",
     "ws": "^8.21.0"
   },
   "devDependencies": {
     "@privos_ai/app-react": "^0.4.0",
+    "@types/express": "^5.0.6",
     "@types/react": "^18.0.0",
     "@types/react-dom": "^18.0.0",
     "@types/ws": "^8.0.0",

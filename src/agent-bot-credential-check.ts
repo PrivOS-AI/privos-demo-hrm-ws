@@ -15,7 +15,7 @@
  * only presence, the Hub's HTTP outcome, and (on success) the bot's own
  * `_id`/`username`, which are safe to display.
  */
-import { resolveHubOrigin } from './runtime-identity';
+import { resolveHubOrigin } from './resolve-hub-origin';
 
 const VALIDATE_TIMEOUT_MS = 5_000;
 const ME_PATH = '/api/v1/me';

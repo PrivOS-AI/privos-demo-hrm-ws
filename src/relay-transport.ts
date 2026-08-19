@@ -1,16 +1,11 @@
 /**
- * Relay transport wiring for the two runtime modes that talk MCP over the
- * SDK's outbound Relay WebSocket instead of inbound Direct HTTP dispatch, so
- * this app never needs a publicly reachable inbound port to be paired with a
- * Hub:
- *
- * - `development` (`npm run dev` / `npm run start:relay`): relaxed
- *   compatibility pairing, cached to `.env`, unverified actor. Never
- *   persisted as a standalone identity file — see {@link startDevelopmentRelay}.
- * - `standalone-production` (`npm run start:standalone`): loads a previously
- *   paired identity file (see `scripts/pair-standalone.ts`) and connects with
- *   mandatory signed-assertion verification — see
- *   {@link startStandaloneProductionRelay}.
+ * Development-only Relay transport wiring. `serveApp` now owns the
+ * standalone-production and managed transports; the ONE piece that stays
+ * app-local is the interactive `development` pairing loop (`npm run dev`):
+ * relaxed compatibility pairing, cached to `.env`, unverified actor, never
+ * persisted as a standalone identity file — see {@link startDevelopmentRelay}.
+ * `relayMcpHandler` is the shared handler adapter used by both this dev loop
+ * and `serveApp`'s Direct HTTP router.
  */
 import fs from 'fs';
 import path from 'path';
@@ -19,19 +14,14 @@ import readline from 'readline';
 import WebSocket from 'ws';
 import {
 	connectRelay,
-	createStandaloneReadinessCheck,
-	createStandaloneRelayIdentityController,
-	loadStandaloneIdentity,
 	pairFromDescriptor,
 	type ApplicationMcpRequest,
 	type PairingResult,
 	type RelayHandle,
-	type StandaloneReadinessResult,
-	type StandaloneRelayIdentityController,
 	type ToolCallContext,
 } from '@privos_ai/app-server';
 
-import { buildRelayAppDescriptor, createManifest } from './manifest';
+import { buildRelayAppDescriptor } from './manifest';
 import { handleMcpMessage } from './mcp-message-handlers';
 
 /**
@@ -48,11 +38,11 @@ import { handleMcpMessage } from './mcp-message-handlers';
  * cross-bound to the already-verified `roomId`. `connectRelay`'s
  * `hubUserTokenAuth: 'auto'` default wires this in automatically and
  * populates `context.actor` whenever a Hub dispatch trust is configured —
- * true for `startStandaloneProductionRelay()` below (its `standaloneIdentity`
- * pins the trust). `startDevelopmentRelay()`'s relaxed compatibility pairing
- * intentionally configures no dispatch trust at all, so the SDK's
- * auto-wiring condition is not met there and `context.actor` stays
- * `undefined` — the same unverified-in-development posture as before.
+ * true for the standalone-production and managed transports `serveApp` now
+ * owns (their pinned/broker trust drives it). `startDevelopmentRelay()`'s
+ * relaxed compatibility pairing intentionally configures no dispatch trust at
+ * all, so the SDK's auto-wiring condition is not met there and `context.actor`
+ * stays `undefined` — the same unverified-in-development posture as before.
  * `context.actor` is forwarded as-is; `handleMcpMessage` fails closed on
  * `undefined` and never reads any other, unverified field.
  */
@@ -140,47 +130,4 @@ export async function startDevelopmentRelay(): Promise<RelayHandle> {
 	await handle.whenConnected();
 	console.log('Relay app running — connected to Privos (development compatibility, unverified actor).');
 	return handle;
-}
-
-export type StandaloneProductionRuntime = Readonly<{
-	relayHandle: RelayHandle;
-	identityController: StandaloneRelayIdentityController;
-	/** Origin the paired Hub is reached at — the standalone analogue of the managed broker's `hubOrigin`. */
-	relayOrigin: string;
-	fingerprint: string;
-	checkReadiness: () => Promise<StandaloneReadinessResult>;
-}>;
-
-/**
- * `npm run start:standalone`. Loads the identity file a prior
- * `npm run pair:standalone` produced (throws `StandaloneIdentityError` when
- * missing/invalid/wrong-mode — a fatal boot error, never a relaxed
- * fallback), connects Relay with `standaloneIdentity` set (forces
- * `effectiveRuntimeDispatchV3.mode = 'required'` — every dispatch must carry
- * a valid Hub-signed assertion), and wires the SDK's readiness contract
- * (identity + Relay-authenticated + manifest-lint + manifest-digest-drift).
- */
-export function startStandaloneProductionRelay(): StandaloneProductionRuntime {
-	const loaded = loadStandaloneIdentity();
-	const identityController = createStandaloneRelayIdentityController(loaded, {
-		logger: (event, fields) => console.log(`[standalone] ${event}`, fields),
-	});
-	const relayHandle = connectRelay({
-		privosUrl: loaded.relay.privosUrl,
-		standaloneIdentity: identityController,
-		descriptor: buildRelayAppDescriptor(),
-		handler: relayMcpHandler,
-		logger: relayLogger('[Relay]'),
-	});
-	const checkReadiness = createStandaloneReadinessCheck({
-		isRelayAuthenticated: () => relayHandle.isConnected(),
-		resolveManifest: () => createManifest(),
-	});
-	return {
-		relayHandle,
-		identityController,
-		relayOrigin: loaded.relay.privosUrl,
-		fingerprint: loaded.fingerprint,
-		checkReadiness,
-	};
 }

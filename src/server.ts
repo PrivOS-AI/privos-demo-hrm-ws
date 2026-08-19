@@ -1,49 +1,60 @@
 /**
- * Entry point. `resolveRuntimeMode()` (inside `runtime-identity.ts`) picks
- * exactly one of `managed` / `standalone-production` / `development` —
- * precedence managed > standalone-production > development — and is a fatal
- * boot error (`RuntimeModeError`, caught below by `start().catch`) when both
- * a managed workload socket and a paired standalone identity file are
- * present, or when `NODE_ENV=production` has neither.
+ * Entry point. `serveApp` resolves exactly one of `managed` /
+ * `standalone-production` / `development` (precedence managed >
+ * standalone-production > development; a fatal `RuntimeModeError` when both a
+ * managed workload socket and a paired standalone identity file are present, or
+ * when `NODE_ENV=production` has neither) and wires the correct transport +
+ * trust bootstrap + agent-bot hub internally.
  *
- * `managed` and `standalone-production` each own a single fixed transport
- * (Direct HTTP via the workload broker, Relay via the paired identity file).
- * `development` additionally offers a transport choice: Direct HTTP for
- * quick local `/mcp` checks (`npm start`, the default), or Relay pairing for
- * a live Hub-embedded UI loop (`npm run dev` / `npm run start:relay`,
- * `PRIVOS_TRANSPORT=relay`) — unverified actor either way, and the SDK's
- * mode resolver already refuses `development` outright under
- * `NODE_ENV=production`, so neither path can become a production escape
- * hatch.
+ * The ONE piece that stays app-local (by design) is the interactive
+ * `development` Relay loop: `PRIVOS_TRANSPORT=relay` (`npm run dev`) steps
+ * `serveApp` aside from the Direct HTTP MCP router and runs the terminal
+ * pairing prompt + optional Vite dev-UI here. `PRIVOS_TRANSPORT` is a
+ * development affordance only — `serveApp` rejects `transportOverride` under any
+ * production mode as a boot error.
+ *
+ * `/.well-known/mcp/manifest.json` is served from `createManifest()` (the exact
+ * reviewed marketplace manifest, digest-pinned) via the `configure` hook, ahead
+ * of the router, so the published manifest bytes never change.
  */
 import 'dotenv/config';
 
-async function start() {
-	const { runtimeMode, startRuntimeIdentity } = await import('./runtime-identity');
-	const { startHttpServer } = await import('./http-server');
-	startHttpServer();
-	startRuntimeIdentity();
+import { serveApp } from '@privos_ai/app-server';
 
-	if (runtimeMode() !== 'development') return;
+import { createManifest, buildRelayAppDescriptor } from './manifest';
+import { relayMcpHandler } from './relay-transport';
 
-	const transport = process.env.PRIVOS_TRANSPORT || 'direct';
-	if (transport === 'direct') return;
-	if (transport !== 'relay') throw new Error(`Unsupported PRIVOS_TRANSPORT: ${transport}`);
+async function start(): Promise<void> {
+	const transportOverride = process.env.PRIVOS_TRANSPORT === 'relay' ? ('relay' as const) : undefined;
 
-	// Dev mode (npm run dev): serve UI live from a Vite dev server over a public
-	// tunnel so the iframe gets HMR + breakpoints. Production keeps the inline bundle.
-	if (process.env.PRIVOS_DEV_UI === '1') {
-		const { startDevUiServer } = await import('./dev-server');
-		const { setDevPublicUrl } = await import('./mcp-message-handlers');
-		const dev = await startDevUiServer();
-		setDevPublicUrl(dev.publicUrl);
+	const handle = await serveApp({
+		descriptor: buildRelayAppDescriptor(),
+		createHandler: () => relayMcpHandler,
+		port: Number(process.env.PORT || 3000),
+		...(transportOverride ? { transportOverride } : {}),
+		resolveManifest: () => createManifest(),
+		configure: (app) => {
+			// Serve the authoritative reviewed manifest verbatim, before the MCP
+			// router's own manifest route, so the digest-pinned bytes are exact.
+			app.get('/.well-known/mcp/manifest.json', (_req, res) => res.json(createManifest()));
+		},
+	});
+
+	// development + PRIVOS_TRANSPORT=relay: run the app-local pairing loop (and
+	// optional live Vite dev UI) alongside serveApp's HTTP support surface.
+	if (handle.mode === 'development' && transportOverride === 'relay') {
+		if (process.env.PRIVOS_DEV_UI === '1') {
+			const { startDevUiServer } = await import('./dev-server');
+			const { setDevPublicUrl } = await import('./mcp-message-handlers');
+			const dev = await startDevUiServer();
+			setDevPublicUrl(dev.publicUrl);
+		}
+		const { startDevelopmentRelay } = await import('./relay-transport');
+		await startDevelopmentRelay();
 	}
-
-	const { startDevelopmentRelay } = await import('./relay-transport');
-	await startDevelopmentRelay();
 }
 
 start().catch((err) => {
-	console.error('Failed to start:', err);
+	console.error('Failed to start:', err instanceof Error ? err.message : err);
 	process.exit(1);
 });

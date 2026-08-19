@@ -15,15 +15,7 @@ describe('production runtime security', () => {
     expect(safeFeatureError(new Error('403 forbidden'), 'The operation failed.')).not.toContain(marker);
   });
 
-  it('reports explicit development compatibility readiness without credentials', async () => {
-    const { runtimeReadiness, startRuntimeIdentity } = await import('../src/runtime-identity');
-    startRuntimeIdentity();
-    await expect(runtimeReadiness()).resolves.toMatchObject({
-      processRunning: true,
-      manifestVerified: true,
-      activeAuthorization: true,
-      identityPaired: false,
-      mode: 'development',
-    });
-  });
+  // Runtime-mode resolution and per-mode readiness are now owned by the SDK
+  // (`serveApp` / `resolveRuntimeMode`) and covered by the SDK suite; the demo's
+  // former runtime-identity readiness path no longer exists here.
 });

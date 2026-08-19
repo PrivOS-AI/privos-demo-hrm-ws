@@ -1,9 +1,9 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { createManifest, MARKETPLACE_MANIFEST_FIELDS } from '../src/manifest';
+import { createManifest, buildRelayAppDescriptor, MARKETPLACE_MANIFEST_FIELDS } from '../src/manifest';
 import pkg from '../package.json';
-import { startHttpServer } from '../src/http-server';
+import { serveApp } from '@privos_ai/app-server';
 import { lintManifest, SUPPORTED_MANIFEST_SCHEMA_VERSIONS } from '@privos_ai/app-server/manifest-tools';
 
 export const PREFLIGHT_RULESET = 'marketplace-validation-mirror/2026-08-02';
@@ -118,18 +118,27 @@ if (packaged.status !== 0) {
   }
 }
 
-const server = startHttpServer(0);
-await new Promise<void>((resolve) => server.once('listening', resolve));
-const address = server.address();
+const handle = await serveApp({
+  descriptor: buildRelayAppDescriptor(),
+  createHandler: () => async () => ({}),
+  port: 0,
+  host: '0.0.0.0',
+  installSignalHandlers: false,
+  resolveManifest: () => createManifest(),
+  configure: (app) => {
+    app.get('/.well-known/mcp/manifest.json', (_req, res) => res.json(createManifest()));
+  },
+});
+const address = handle.server.address();
 if (!address || typeof address === 'string') {
-  fail('Direct server did not bind a TCP port.', 'Ensure src/http-server.ts listens on 0.0.0.0.');
+  fail('Direct server did not bind a TCP port.', 'Ensure serveApp binds an HTTP surface on 0.0.0.0.');
 } else {
   const response = await fetch(`http://127.0.0.1:${address.port}/.well-known/mcp/manifest.json`);
   if (!response.ok || JSON.stringify(await response.json()) !== JSON.stringify(manifest)) {
-    fail('The running app did not serve the authoritative manifest.', 'Route GET /.well-known/mcp/manifest.json to createManifest().');
+    fail('The running app did not serve the authoritative manifest.', 'Route GET /.well-known/mcp/manifest.json to createManifest() via serveApp configure.');
   }
 }
-await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
+await handle.close();
 
 if (failures.length) {
   console.error(`\nPreflight failed (${failures.length}):\n- ${failures.join('\n- ')}`);

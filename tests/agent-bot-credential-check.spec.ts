@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const { resolveHubOrigin } = vi.hoisted(() => ({ resolveHubOrigin: vi.fn() }));
-vi.mock('../src/runtime-identity', () => ({ resolveHubOrigin }));
+vi.mock('../src/resolve-hub-origin', () => ({ resolveHubOrigin }));
 
 // Obviously-fake fixture values — never a real secret — used to prove the
 // credential never leaks through any return value or error path.

@@ -47,16 +47,19 @@ function prompt(question: string): Promise<string> {
  */
 function runStandaloneServer(): Promise<number> {
 	const agent = (process.env.npm_config_user_agent || '').split('/')[0];
+	// One `pair` + `start` convention: pairing just wrote the identity file, so a
+	// plain `start` resolves to standalone-production. NODE_ENV=production keeps
+	// the posture fail-closed (never a dev fallback) if that file were absent.
 	const argv =
 		agent === 'pnpm'
-			? ['pnpm', 'start:standalone']
+			? ['pnpm', 'start']
 			: agent === 'yarn'
-				? ['yarn', 'start:standalone']
-				: ['npm', 'run', 'start:standalone'];
+				? ['yarn', 'start']
+				: ['npm', 'start'];
 
 	console.log(`\nStarting the app: ${argv.join(' ')}\n`);
 	return new Promise((resolve, reject) => {
-		const child = spawn(argv[0], argv.slice(1), { cwd: repositoryRoot, stdio: 'inherit' });
+		const child = spawn(argv[0], argv.slice(1), { cwd: repositoryRoot, stdio: 'inherit', env: { ...process.env, NODE_ENV: 'production' } });
 		child.on('error', reject);
 		child.on('exit', (code, signal) => resolve(signal ? 1 : (code ?? 0)));
 	});
