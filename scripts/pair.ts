@@ -5,16 +5,14 @@
  * Hub hands back dispatch trust — starts the app in standalone production
  * mode without a second command.
  *
- * Pairing happens TWICE, and the two runs mean different things:
- *   1. The first run REGISTERS the app. The Hub stores the announced contract,
- *      grants nothing, and reports `awaitingApproval` — an admin still decides
- *      the permission ceiling in Hub Admin > Apps. There is no identity file
- *      yet and nothing to start, so this run stops there deliberately.
- *   2. After approval, run it again with a fresh URL from that app's settings.
- *      The Hub re-hands the same credentials plus its dispatch trust, the SDK
- *      writes the identity file, and the server starts.
+ * ONE command (device-authorization). This run registers the app (the Hub
+ * stores the announced contract, grants nothing), then WAITS: it polls the Hub
+ * with the same pairing token until an admin approves the permission ceiling in
+ * Hub Admin > Apps, at which point it receives the dispatch trust, writes the
+ * identity file, and starts the server — no second URL. `pairAndAwaitApproval`
+ * returns nothing usable before approval, so trust is never handed early.
  *
- * A Hub that answers `pairingVersion !== 2` without `awaitingApproval` does not
+ * A Hub that answers `pairingVersion !== 2` without ever approving does not
  * support standalone pairing at all — refused here rather than silently
  * starting an unverifiable "standalone" install.
  */
@@ -24,7 +22,7 @@ import path from 'node:path';
 import readline from 'node:readline';
 import { fileURLToPath } from 'node:url';
 
-import { buildPairingMetadata, pairOverWebSocket, type PairingResult } from '@privos_ai/app-server';
+import { buildPairingMetadata, pairAndAwaitApproval, type PairingResult } from '@privos_ai/app-server';
 import WebSocket from 'ws';
 
 import { buildRelayAppDescriptor } from '../src/manifest';
@@ -70,18 +68,14 @@ async function main(): Promise<void> {
 	if (!pairUrl) throw new Error('No pairing URL provided');
 
 	const manifest = JSON.parse(await readFile(path.join(repositoryRoot, 'privos-app.json'), 'utf8'));
-	const paired: PairingResult = await pairOverWebSocket(
+	console.log('\nRegistering… once registered, approve the permission ceiling in Hub Admin > Apps.');
+	console.log('This command will keep waiting and start the app automatically after approval.');
+	const paired: PairingResult = await pairAndAwaitApproval(
 		pairUrl,
 		{ ...buildPairingMetadata(buildRelayAppDescriptor()), manifest },
 		WebSocket,
+		{ onAwaitingApproval: () => process.stdout.write('.') },
 	);
-
-	if (paired.awaitingApproval) {
-		console.log(`\nRegistered as ${paired.mcpAppId ?? 'unknown app'} — awaiting admin approval of the permission ceiling.`);
-		console.log('Approve it in Hub Admin > Apps, then run this command again with a fresh pairing URL');
-		console.log("from that app's settings to receive dispatch trust and start the app.");
-		return;
-	}
 
 	if (paired.pairingVersion !== 2 || !paired.identityFilePath) {
 		throw new Error(
