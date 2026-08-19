@@ -1,6 +1,6 @@
 {
   "name": "ai.privos.mcp-app-demo",
-  "version": "2.13.0",
+  "version": "2.14.0",
   "type": "module",
   "private": false,
   "description": "Reference PrivOS MCP app demonstrating HR workflows, scoped workspace APIs, AI and sandbox controls, and license-aware features.",
@@ -58,7 +58,9 @@
     "start:relay": "PRIVOS_TRANSPORT=relay npm start",
     "start:standalone": "NODE_ENV=production npm start",
     "typecheck": "tsc --noEmit",
+    "typecheck:strict-unused": "tsc --noEmit --noUnusedLocals --noUnusedParameters",
     "test": "vitest run",
+    "verify:fast-pr": "npm run typecheck:strict-unused && npm run test && npm run build && npm run preflight",
     "manifest:lint": "privos-app-lint privos-app.json",
     "preflight": "tsx scripts/preflight.ts",
     "package": "bash scripts/package-source.sh",

@@ -44,14 +44,37 @@ else
 fi
 
 contents="$(unzip -Z1 "$archive")"
+
+# The two entries the Portal requires at the archive root. Their absence is
+# `manifest_missing` / `dockerfile_missing` after the upload completes.
+for required in privos-app.json Dockerfile; do
+  if ! printf '%s\n' "$contents" | grep -qx "$required"; then
+    echo "Archive is missing required root entry: $required" >&2
+    rm -f "$archive"
+    exit 1
+  fi
+done
+
+# The Portal's denied-path rule is `(^|/)\.env(\.|$)`, which matches
+# `.env.example` as well — keep such paths out with `.gitattributes`
+# `export-ignore` rather than by editing the archive.
 bad_entries="$(printf '%s\n' "$contents" | awk '
-  /(^|\/)node_modules(\/|$)|(^|\/)dist(\/|$)|(^|\/)dist-source(\/|$)|(^|\/)\.recyclebin(\/|$)/ { print; next }
+  /(^|\/)node_modules(\/|$)|(^|\/)dist(\/|$)|(^|\/)dist-source(\/|$)|(^|\/)\.recyclebin(\/|$)|(^|\/)\.privos\/skills(\/|$)/ { print; next }
   /(^|\/)\.env/ { print; next }
+  /\.\./ { print; next }
   /(^|\/)id_rsa/ || /\.pem$/ || /\.key$/ || tolower($0) ~ /credentials/ { print }
 ')"
 if [[ -n "$bad_entries" ]]; then
   echo "Unsafe files found in source archive:" >&2
   printf '%s\n' "$bad_entries" >&2
+  rm -f "$archive"
+  exit 1
+fi
+
+entry_count="$(printf '%s\n' "$contents" | grep -c .)"
+entry_limit=20000
+if (( entry_count > entry_limit )); then
+  echo "Archive holds $entry_count entries; marketplace limit is $entry_limit." >&2
   rm -f "$archive"
   exit 1
 fi

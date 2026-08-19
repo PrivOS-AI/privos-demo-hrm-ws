@@ -4,6 +4,31 @@ This project follows [Semantic Versioning](https://semver.org/). Each marketplac
 must equal `privos-app.json.version` and `package.json.version`; change both release notes and metadata
 in one commit.
 
+## [2.14.0] - 2026-08-19
+
+### Changed
+
+- **Adopt the `serveApp` unified SDK entrypoint** (`@privos_ai/app-server` ^0.7.0). One
+  `serveApp(...)` resolves the runtime mode and wires transport, trust bootstrap, and the
+  agent-bot hub internally; the hand-rolled HTTP MCP server and runtime-identity wiring are
+  gone. The interactive development Relay pairing loop stays app-local. The reviewed
+  marketplace manifest is served byte-for-byte through the `configure` hook, ahead of the
+  MCP router, so the digest pin is unchanged by the migration.
+
+### Added
+
+- **Marketplace permission-catalog conformance test** (`tests/permission-catalog.spec.ts`):
+  fails locally on an unknown/retired scope or an invalid `context`/`executionContext`,
+  instead of surfacing only at Portal submit as `PROPOSAL_PERMISSION_*`.
+
+### Hardened
+
+- `scripts/package-source.sh` now asserts the required root entries (`privos-app.json`,
+  `Dockerfile`), rejects `..` traversal and the marketplace skill-pack path, and enforces the
+  20,000-entry archive limit.
+- Added a `typecheck:strict-unused` gate (unused locals/parameters) and a `verify:fast-pr`
+  aggregate; dropped the `.dockerignore` re-include of `.env.example`.
+
 ## [2.13.0] - 2026-08-13
 
 ### Added
