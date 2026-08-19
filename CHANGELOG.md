@@ -4,11 +4,22 @@ This project follows [Semantic Versioning](https://semver.org/). Each marketplac
 must equal `privos-app.json.version` and `package.json.version`; change both release notes and metadata
 in one commit.
 
-## [2.14.1] - 2026-08-19
+## [2.14.2] - 2026-08-19
 
-2.14.0 never published: its lockfile still resolved `@privos_ai/app-server` to the vendored
-dev tarball, which the marketplace build node cannot satisfy (preflight `build_failed`).
-2.14.1 is the same change set with the dependency resolved from the npm registry.
+2.14.0 and 2.14.1 never published. 2.14.0: the lockfile still resolved
+`@privos_ai/app-server` to the vendored dev tarball, which the build node cannot satisfy
+(preflight `build_failed`). 2.14.1: the build node probes the bare image for
+`/.well-known/mcp/manifest.json`, and serveApp's fail-closed `PRODUCTION_WITHOUT_IDENTITY`
+refusal exited the process before anything served it (`runtime_manifest_unavailable`).
+
+### Added (2.14.2)
+
+- **Manifest-only degraded surface.** When production has no runtime identity yet (no
+  workload socket, no paired identity file), the app now serves ONLY the public reviewed
+  manifest plus `/health`, with `/ready` held at 503 and **no `/mcp` surface** — dispatch
+  stays fail-closed, the platform's bare-image manifest probe passes, and a real
+  misconfiguration still turns the container unhealthy. `AMBIGUOUS_RUNTIME_IDENTITY`
+  remains a hard exit.
 
 ### Changed
 

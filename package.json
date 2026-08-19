@@ -1,6 +1,6 @@
 {
   "name": "ai.privos.mcp-app-demo",
-  "version": "2.14.1",
+  "version": "2.14.2",
   "type": "module",
   "private": false,
   "description": "Reference PrivOS MCP app demonstrating HR workflows, scoped workspace APIs, AI and sandbox controls, and license-aware features.",
