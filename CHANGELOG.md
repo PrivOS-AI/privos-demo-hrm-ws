@@ -4,6 +4,15 @@ This project follows [Semantic Versioning](https://semver.org/). Each marketplac
 must equal `privos-app.json.version` and `package.json.version`; change both release notes and metadata
 in one commit.
 
+## [2.14.3] - 2026-08-19
+
+### Changed
+
+- **One-command pairing** (`@privos_ai/app-server` ^0.7.1). `pnpm pair` now registers, then
+  waits — polling the Hub with the same pairing token until an admin approves the permission
+  ceiling — and starts the app automatically after approval. No second pairing URL. Nothing
+  usable is returned before approval; the out-of-band fingerprint check still applies.
+
 ## [2.14.2] - 2026-08-19
 
 2.14.0 and 2.14.1 never published. 2.14.0: the lockfile still resolved
