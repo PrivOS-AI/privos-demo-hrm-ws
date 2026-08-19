@@ -4,6 +4,16 @@ This project follows [Semantic Versioning](https://semver.org/). Each marketplac
 must equal `privos-app.json.version` and `package.json.version`; change both release notes and metadata
 in one commit.
 
+## [2.14.4] - 2026-08-19
+
+### Changed
+
+- **Pairing robustness** (`@privos_ai/app-server` ^0.7.3). Two one-command-pairing fixes:
+  the identity file now persists the bare Hub `https` origin (not the `wss` relay endpoint),
+  so user-token JWKS verification accepts it; and a pre-existing identity file now aborts
+  pairing *before* the Hub handshake, so a retry never registers a dead installation. No
+  manifest or permission change — the reviewed manifest digest is unchanged from 2.14.3.
+
 ## [2.14.3] - 2026-08-19
 
 ### Changed
