@@ -4,7 +4,11 @@ This project follows [Semantic Versioning](https://semver.org/). Each marketplac
 must equal `privos-app.json.version` and `package.json.version`; change both release notes and metadata
 in one commit.
 
-## [2.14.0] - 2026-08-19
+## [2.14.1] - 2026-08-19
+
+2.14.0 never published: its lockfile still resolved `@privos_ai/app-server` to the vendored
+dev tarball, which the marketplace build node cannot satisfy (preflight `build_failed`).
+2.14.1 is the same change set with the dependency resolved from the npm registry.
 
 ### Changed
 
