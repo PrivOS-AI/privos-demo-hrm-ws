@@ -17,6 +17,10 @@ import AgentBotPanel from './agent-bot-panel';
 import EmbedsPanel from './embeds-panel';
 import BotWorkloadPanel from './bot-workload-panel';
 import AssigneeDemoPanel from './assignee-demo-panel';
+import AttemptLifecyclePanel from './attempt-lifecycle-panel';
+import AttemptEvidencePanel from './attempt-evidence-panel';
+import AppObjectsPanel from './app-objects-panel';
+import AppDbPanel from './app-db-panel';
 
 type Tab =
   | 'identity'
@@ -33,7 +37,11 @@ type Tab =
   | 'agent'
   | 'embeds'
   | 'workload'
-  | 'assignees';
+  | 'assignees'
+  | 'attemptLifecycle'
+  | 'attemptEvidence'
+  | 'appObjects'
+  | 'appDb';
 
 const TABS: { id: Tab; label: string; scope?: string; degradedBehavior?: string }[] = [
   { id: 'identity', label: 'Identity' },
@@ -53,6 +61,14 @@ const TABS: { id: Tab; label: string; scope?: string; degradedBehavior?: string 
   // No single scope: the panel itself shows granted/not-granted per lifecycle scope.
   { id: 'workload', label: 'Bot workload' },
   { id: 'assignees', label: 'Isolated ASSIGNEE', scope: 'lists:write', degradedBehavior: 'This demo needs write access to create the isolated list and item.' },
+  // Step-1 generic platform contract (merged hub bff01ee8, live only on tenant.132+). Both run as
+  // the current user under the already-approved sandbox:generate scope — no new permission.
+  { id: 'attemptLifecycle', label: 'Attempt lifecycle', scope: 'sandbox:generate', degradedBehavior: 'This tab cannot dispatch, observe, or cancel a Sandbox attempt.' },
+  { id: 'attemptEvidence', label: 'Attempt evidence', scope: 'sandbox:generate', degradedBehavior: "This tab cannot read a Sandbox attempt's LLM/gateway evidence." },
+  // Both run through this app's own installation-bot credential, not the current user's session —
+  // see app-objects-panel.tsx / app-db-panel.tsx.
+  { id: 'appObjects', label: 'App Objects (CAS)', scope: 'db:write', degradedBehavior: 'This tab cannot store or read App Objects (CAS) content.' },
+  { id: 'appDb', label: 'App Database', scope: 'db:schema:write', degradedBehavior: 'This tab cannot register or use its demo App Database collection.' },
 ];
 
 function FeatureUnavailable({ text }: { text: string }) {
@@ -112,6 +128,10 @@ function ThemedApp() {
           {tab === 'embeds' && <EmbedsPanel />}
           {tab === 'workload' && <BotWorkloadPanel />}
           {tab === 'assignees' && <AssigneeDemoPanel />}
+          {tab === 'attemptLifecycle' && <AttemptLifecyclePanel />}
+          {tab === 'attemptEvidence' && <AttemptEvidencePanel />}
+          {tab === 'appObjects' && <AppObjectsPanel />}
+          {tab === 'appDb' && <AppDbPanel />}
         </>
       )}
 

@@ -16,6 +16,12 @@
  * of the CURRENT room and derives the Sandbox project from THAT bot, never
  * from a caller-supplied `projectId`. Omitting `botId` keeps the legacy
  * room-default-bot behavior byte-identical.
+ *
+ * `operationId` is the Step-1 caller-stable idempotency key (merged hub
+ * `bff01ee8`, live only on tenant.132+, see `attempt-lifecycle-panel.tsx`):
+ * dispatching the SAME operationId with the SAME request converges on one
+ * attempt; the SAME operationId with a CHANGED request fails closed.
+ * Omitting it keeps the pre-Step-1 behavior byte-identical.
  */
 export function buildGenerateAsyncPayload(params: {
   roomId: string;
@@ -23,14 +29,16 @@ export function buildGenerateAsyncPayload(params: {
   taskId: string;
   taskTitle: string;
   botId?: string;
+  operationId?: string;
 }): Record<string, unknown> {
-  const { roomId, prompt, taskId, taskTitle, botId } = params;
+  const { roomId, prompt, taskId, taskTitle, botId, operationId } = params;
   return {
     roomId,
     prompt,
     taskId,
     taskTitle,
     ...(botId ? { botId } : {}),
+    ...(operationId ? { operationId } : {}),
   };
 }
 

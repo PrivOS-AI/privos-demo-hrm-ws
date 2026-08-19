@@ -113,7 +113,14 @@ export async function startDevelopmentRelay(): Promise<RelayHandle> {
 		clientId = paired.clientId;
 		clientSecret = paired.clientSecret;
 
-		saveDevCredentialsToEnv({ PRIVOS_URL: privosUrl, CLIENT_ID: clientId, CLIENT_SECRET: clientSecret });
+		// `mcpAppId` — this app's own installation id — is cached alongside the
+		// relay credentials so the App Objects / App Database demo tabs can
+		// resolve it in development too (`resolve-own-mcp-app-id.ts`). Absent on
+		// a pairing response that predates that (older Hub); those tabs then
+		// report a clear "re-pair" message instead of guessing.
+		const cachedVars: Record<string, string> = { PRIVOS_URL: privosUrl, CLIENT_ID: clientId, CLIENT_SECRET: clientSecret };
+		if (paired.mcpAppId) cachedVars.MCP_APP_ID = paired.mcpAppId;
+		saveDevCredentialsToEnv(cachedVars);
 		console.log('[Relay] Paired! Credentials cached to .env for the next `npm run dev`.');
 		console.log(`[Relay]   Client ID: ${clientId}`);
 		console.log(`[Relay]   Privos URL: ${privosUrl}`);

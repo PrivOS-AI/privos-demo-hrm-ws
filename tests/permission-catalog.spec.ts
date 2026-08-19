@@ -38,6 +38,12 @@ const CATALOG: Readonly<Record<string, CatalogEntry>> = {
 	'sandbox:ai-chat': { contexts: ['room'], executionContexts: ['user'] },
 	'sandbox:ai-chat:write': { contexts: ['room'], executionContexts: ['user'] },
 	'sandbox:agent-sets:upload': { contexts: ['workspace'], executionContexts: ['user'] },
+	// Step-1 generic platform contract (merged hub bff01ee8): userAndBackground in the hub's own
+	// mcp-permission-catalog.ts.
+	'db:read': { contexts: ['workspace', 'room'], executionContexts: ['user', 'background', 'both'] },
+	'db:write': { contexts: ['workspace', 'room'], executionContexts: ['user', 'background', 'both'] },
+	'db:schema:read': { contexts: ['workspace', 'room'], executionContexts: ['user', 'background', 'both'] },
+	'db:schema:write': { contexts: ['workspace', 'room'], executionContexts: ['user', 'background', 'both'] },
 };
 
 /**

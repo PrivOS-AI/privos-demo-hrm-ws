@@ -278,6 +278,73 @@ request shapes — as the part still worth confirming on a real installation.
    confirm C's visibility flips accordingly — this is what proves the ASSIGNEE field, not room
    membership, gates isolated-list item visibility.
 
+## App Platform demo tabs (Step-1 generic platform contract)
+
+Four tabs demonstrate capabilities that landed in the merged hub `bff01ee8` (Step-1 generic
+platform contract). **They are code-ready but exercise the live contract only once this room's
+Hub runs a tenant image built from that merge (tenant.132+) — on an older Hub these calls fail
+with an unknown-tool or unknown-route error, not a bug in this app.**
+
+### Attempt lifecycle
+
+The **Attempt lifecycle** tab (`src/ui/attempt-lifecycle-panel.tsx` +
+`src/ui/attempt-observation-section.tsx`) runs as the current user, under the already-approved
+`sandbox:generate` scope — no new permission (the hub's `mcp-rest-allowlist.ts` maps all of
+`generate-async` / `attempt-status` / `attempt-observation` / `attempt-cancel` / `attempt-evidence`
+to that one scope):
+
+- `agents.sandbox.attempt-observation` — phase, pending-question, bounded `output` (plus an
+  `outputTruncated` flag), and timestamps for one attempt. Field names match the Hub's own
+  `IAttemptObservation` exactly (`privos-sandbox-agent-service.ts` in privos-hub) — there is no
+  `logs` field.
+- `agents.sandbox.attempt-cancel` — a real worker cancel; the returned status is
+  worker-authoritative and never rewrites an already-completed/failed attempt to `cancelled`.
+- Caller-stable `operationId` idempotency on `agents.sandbox.generate-async`: the tab dispatches
+  once, then re-dispatches the SAME `operationId` with the SAME request and shows the returned
+  `attemptId` converges on the first attempt, then re-dispatches the SAME `operationId` with a
+  CHANGED prompt and shows the Hub fails that closed (an `operationId` bound to one request can
+  never silently rebind to a different one).
+
+### Attempt evidence
+
+The **Attempt evidence** tab (`src/ui/attempt-evidence-panel.tsx`) reads
+`agents.sandbox.attempt-evidence` for one attemptId (paste one from the Attempt lifecycle tab),
+showing the recorded LLM/gateway calls: model, provider, effort, turn, correlation. Same
+`sandbox:generate` scope; no new permission.
+
+### App Objects (CAS) and App Database
+
+The **App Objects (CAS)** tab (`src/ui/app-objects-panel.tsx`) and **App Database** tab
+(`src/ui/app-db-panel.tsx`) are the one exception to "every tab runs as the current user": these
+MCP tools (`mcpapp.objects.put`/`.head`/`.get`, `mcpapp.db.registerCollection`/`.create`/`.query`/
+`.getSchema`) are reached only through `POST /api/v1/mcp-apps.tool-call`, and this app calls that
+endpoint authenticated with **its own installation-bot credential** (`PRIVOS_AGENT_BOT_CREDENTIAL`
+/ `PRIVOS_AGENT_BOT_USER_ID`, the same reserved env pair `agent-bot-credential-check.ts` already
+validates), never the current user's session. The frontend calls this app's own backend tools
+`hr_app_object_store` / `hr_app_db_store`; the backend then makes the bot-credential call
+server-side:
+
+- `resolve-own-mcp-app-id.ts` — resolves this app's own `mcpAppId` (mode-aware, mirrors
+  `resolve-hub-origin.ts`).
+- `app-platform-tool-call.ts` — the shared bot-credential transport, built on the SDK's own
+  `createAgentBotHubClient`. Mirrors the reference consumer, legal-agent's
+  `hub-db-object-store.ts`, byte for byte: same endpoint, same body shape
+  (`{ mcpAppId, toolName, arguments, roomId }`).
+- `app-objects-demo-tool.ts` / `app-db-demo-tool.ts` — the two backend tool handlers.
+
+**App Objects (CAS)**: `put` computes the sha256 digest of the given bytes itself and sends it as
+`sha256:<64hex>` — the Hub independently re-verifies content == digest and rejects a mismatch on
+its own side; this panel also re-verifies the digest of what `get` reads back, client-side, on top
+of that. Objects are immutable and room-private; a repeated `put` of identical bytes is an
+"adopt", not a conflict.
+
+**App Database**: a fixed demo collection (`hr_demo_notes`, room-scoped) is registered once per
+room, then create/query/getSchema round-trip a small `{ label, note }` record.
+
+New optional permissions this adds to the manifest: `db:read`, `db:write`, `db:schema:read`,
+`db:schema:write` — see [`SCOPES.md`](SCOPES.md) for the exact call-site map and
+[`privos-app.json`](privos-app.json) for the declarations.
+
 ## License behavior
 
 The manifest declares a Free tier (50 records) and Pro tier (5,000 records plus `bulk-export`).

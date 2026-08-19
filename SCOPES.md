@@ -21,6 +21,15 @@ call site and explains the behavior when an optional permission is absent.
 | `sandbox:wake` | Optional | Room; user | Wakes and polls the room sandbox in `sandbox-connect-panel.tsx`. | Wake is disabled while other granted sandbox controls remain usable. |
 | `sandbox:ai-chat` | Optional | Room; user | Reads sessions/history in `ai-chat-panel.tsx`, `ai-poem-panel.tsx`, and `ai-history-panel.tsx`. | Existing AI sessions are not displayed. |
 | `sandbox:ai-chat:write` | Optional | Room; user | Starts, sends, cancels, and generates AI work in the chat and poem panels. | Creation/generation panels are disabled; separately granted read history remains available. |
+| `db:read` | Optional | Room; user | Reads App Database records and App Objects (CAS) metadata/content in `app-objects-panel.tsx` / `app-db-panel.tsx`, via `mcpapp.objects.head`/`.get` and `mcpapp.db.query`/`.getSchema`. Step-1 generic platform contract; live only on tenant.132+. | The App Objects and App Database tabs cannot read anything back. |
+| `db:write` | Optional | Room; user | Stores an immutable content-addressed object and creates App Database records in `app-objects-panel.tsx` / `app-db-panel.tsx`, via `mcpapp.objects.put` and `mcpapp.db.create`. Step-1 generic platform contract; live only on tenant.132+. | The App Objects and App Database tabs cannot store or create anything. |
+| `db:schema:read` | Optional | Room; user | Reads the demo App Database collection's schema in `app-db-panel.tsx`, via `mcpapp.db.getSchema`. Step-1 generic platform contract; live only on tenant.132+. | The App Database tab cannot display its collection schema. |
+| `db:schema:write` | Optional | Room; user | Registers the demo App Database collection's schema in `app-db-panel.tsx`, via `mcpapp.db.registerCollection`. Step-1 generic platform contract; live only on tenant.132+. | The App Database tab cannot register its demo collection. |
+
+The App Objects and App Database tabs are the one exception to "runs as the current user": both
+scopes above are exercised through this app's own installation-bot credential
+(`POST /api/v1/mcp-apps.tool-call`, see `app-platform-tool-call.ts`), not the current user's
+session — see README.md § App Platform demo tabs.
 
 The app-owned `hr_bulk_export` tool does not request a workspace permission. It processes caller
 input and is gated by the Pro license feature. The Hub still enforces installation status, receipt,

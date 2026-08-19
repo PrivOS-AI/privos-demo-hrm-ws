@@ -2,7 +2,7 @@
   "schemaVersion": 3,
   "kind": "mcp-app",
   "name": "ai.privos.mcp-app-demo",
-  "version": "2.14.4",
+  "version": "2.15.0",
   "title": "PrivOS Demo MCP App",
   "description": "Reference PrivOS MCP app demonstrating HR workflows, scoped workspace APIs, AI and sandbox controls, and license-aware features.",
   "icon": "/public/icon.svg",
@@ -147,6 +147,42 @@
       "feature": "sandbox.chat.manage",
       "reason": "Start, send, and stop AI chat work in the approved room.",
       "degradedBehavior": "AI chat remains read-only when read access is granted, or hidden otherwise."
+    },
+    {
+      "scope": "db:read",
+      "requirement": "optional",
+      "context": "room",
+      "executionContext": "user",
+      "feature": "platform.db.read",
+      "reason": "Read this app's own room-scoped App Database records and App Objects (CAS) metadata/content in the App Objects and App Database demo tabs, exercised through this app's own installation-bot credential.",
+      "degradedBehavior": "The App Objects and App Database demo tabs cannot read anything back."
+    },
+    {
+      "scope": "db:write",
+      "requirement": "optional",
+      "context": "room",
+      "executionContext": "user",
+      "feature": "platform.db.write",
+      "reason": "Store an immutable content-addressed App Object and create records in this app's own room-scoped App Database collection, in the App Objects and App Database demo tabs.",
+      "degradedBehavior": "The App Objects and App Database demo tabs cannot store or create anything."
+    },
+    {
+      "scope": "db:schema:read",
+      "requirement": "optional",
+      "context": "room",
+      "executionContext": "user",
+      "feature": "platform.db.schema.read",
+      "reason": "Read the demo App Database collection's registered schema in the App Database demo tab.",
+      "degradedBehavior": "The App Database demo tab cannot display its collection schema."
+    },
+    {
+      "scope": "db:schema:write",
+      "requirement": "optional",
+      "context": "room",
+      "executionContext": "user",
+      "feature": "platform.db.schema.write",
+      "reason": "Register the demo App Database collection's schema (mcpapp.db.registerCollection) once per room, in the App Database demo tab.",
+      "degradedBehavior": "The App Database demo tab cannot register its demo collection."
     }
   ],
   "dataPolicy": {

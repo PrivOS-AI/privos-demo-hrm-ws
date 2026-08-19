@@ -4,6 +4,31 @@ This project follows [Semantic Versioning](https://semver.org/). Each marketplac
 must equal `privos-app.json.version` and `package.json.version`; change both release notes and metadata
 in one commit.
 
+## [2.15.0] - 2026-08-19
+
+### Added
+
+- **Four new demo tabs for the Step-1 generic platform contract** (merged hub `bff01ee8`;
+  live only once this room's Hub is on tenant.132+ — see README.md § App Platform demo
+  tabs):
+  - **Attempt lifecycle** — `agents.sandbox.attempt-observation` (phase / pending-question /
+    bounded output / timestamps), real worker `agents.sandbox.attempt-cancel`, and
+    caller-stable `operationId` idempotency on `agents.sandbox.generate-async` (same
+    request converges on one attempt; a changed request under the same `operationId` fails
+    closed). Runs as the current user under the already-approved `sandbox:generate` scope.
+  - **Attempt evidence** — `agents.sandbox.attempt-evidence`, reading per-attempt
+    LLM/gateway calls (model/provider/effort/turn/correlation). Same `sandbox:generate`
+    scope, no new permission.
+  - **App Objects (CAS)** — `mcpapp.objects.put`/`.head`/`.get`, storing and reading one
+    immutable, room-private, content-addressed object with sha256 digest verification (Hub
+    side and, redundantly, client side).
+  - **App Database** — `mcpapp.db.registerCollection`/`.create`/`.query`/`.getSchema`
+    against a fixed room-scoped demo collection.
+  - New optional permissions: `db:read`, `db:write`, `db:schema:read`, `db:schema:write`.
+    The App Objects and App Database tabs run through this app's own installation-bot
+    credential (`POST /api/v1/mcp-apps.tool-call`), not the current user's session — see
+    `app-platform-tool-call.ts`.
+
 ## [2.14.4] - 2026-08-19
 
 ### Changed

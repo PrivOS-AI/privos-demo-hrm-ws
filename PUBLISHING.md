@@ -66,6 +66,14 @@ must gain it and be redeployed **first**. Otherwise cut the release from the
 last published commit and cherry-pick, so the reviewed permission set is
 unchanged.
 
+**2.15.0 example**: the four App Platform demo tabs (see README.md § App Platform demo tabs)
+declare `db:read` / `db:write` / `db:schema:read` / `db:schema:write` — scopes introduced by the
+Step-1 generic platform contract (merged hub `bff01ee8`). Do not submit this version against a
+Portal whose `MCP_PERMISSION_CATALOG_VERSION` predates that merge; it will reject with
+`PROPOSAL_PERMISSION_UNKNOWN` for all four. The corresponding MCP tools also only run once the
+installing tenant's Hub image is built from tenant.132+ — a successful submission against an
+up-to-date Portal does not by itself mean those tabs work on every existing tenant yet.
+
 ---
 
 ## 2. Run the local mirror of the Portal's rules

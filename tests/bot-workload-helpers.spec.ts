@@ -20,6 +20,16 @@ describe('buildGenerateAsyncPayload', () => {
     expect('projectId' in withExecutor).toBe(false);
     expect('projectId' in withoutExecutor).toBe(false);
   });
+
+  it('includes operationId when a caller-stable idempotency key is supplied', () => {
+    const payload = buildGenerateAsyncPayload({ ...base, operationId: 'op-1' });
+    expect(payload).toMatchObject({ ...base, operationId: 'op-1' });
+  });
+
+  it('omits the operationId key entirely when none is supplied', () => {
+    const payload = buildGenerateAsyncPayload(base);
+    expect('operationId' in payload).toBe(false);
+  });
 });
 
 describe('ATTEMPT_TERMINAL', () => {
