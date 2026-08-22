@@ -21,6 +21,7 @@ import AttemptLifecyclePanel from './attempt-lifecycle-panel';
 import AttemptEvidencePanel from './attempt-evidence-panel';
 import AppObjectsPanel from './app-objects-panel';
 import AppDbPanel from './app-db-panel';
+import StoragePanel from './storage-panel';
 
 type Tab =
   | 'identity'
@@ -41,7 +42,8 @@ type Tab =
   | 'attemptLifecycle'
   | 'attemptEvidence'
   | 'appObjects'
-  | 'appDb';
+  | 'appDb'
+  | 'storage';
 
 const TABS: { id: Tab; label: string; scope?: string; degradedBehavior?: string }[] = [
   { id: 'identity', label: 'Identity' },
@@ -69,6 +71,8 @@ const TABS: { id: Tab; label: string; scope?: string; degradedBehavior?: string 
   // see app-objects-panel.tsx / app-db-panel.tsx.
   { id: 'appObjects', label: 'App Objects (CAS)', scope: 'db:write', degradedBehavior: 'This tab cannot store or read App Objects (CAS) content.' },
   { id: 'appDb', label: 'App Database', scope: 'db:schema:write', degradedBehavior: 'This tab cannot register or use its demo App Database collection.' },
+  // No scope: host storage is a browser-local, per-app namespace mediated by the host.
+  { id: 'storage', label: 'Storage' },
 ];
 
 function FeatureUnavailable({ text }: { text: string }) {
@@ -132,6 +136,7 @@ function ThemedApp() {
           {tab === 'attemptEvidence' && <AttemptEvidencePanel />}
           {tab === 'appObjects' && <AppObjectsPanel />}
           {tab === 'appDb' && <AppDbPanel />}
+          {tab === 'storage' && <StoragePanel />}
         </>
       )}
 
