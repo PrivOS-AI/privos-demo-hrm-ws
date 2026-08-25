@@ -1,13 +1,24 @@
 # Changelog
 
-## Unreleased
-
-- Add a **Notification** tab using `mcpapp.notifications.create` and the optional room-scoped `notifications:write` permission.
-- Demonstrate one-user bell, native mobile, and Web Push delivery with server-enforced room membership.
-
 This project follows [Semantic Versioning](https://semver.org/). Each marketplace listing version
 must equal `privos-app.json.version` and `package.json.version`; change both release notes and metadata
 in one commit.
+
+## [2.15.1] - 2026-08-25
+
+### Added
+
+- **Notification tab** using `mcpapp.notifications.create` and the new optional room-scoped
+  `notifications:write` permission — one-user bell, native mobile, and Web Push delivery with
+  server-enforced room membership. This declares a new permission, so the publisher
+  permission-declaration hash changes from 2.15.0; `notifications:write` is in the Portal
+  permission catalog `2026-08-25`.
+
+### Changed
+
+- Upgraded `@privos_ai/app-server` to `^0.8.3` (relay user-token verification now
+  accepts the publisher manifest name as a user-token audience alongside the Hub
+  record id, so `context.actor` resolves on standalone-production installs).
 
 ## [2.15.0] - 2026-08-19
 
