@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Add a **Notification** tab using `mcpapp.notifications.create` and the optional room-scoped `notifications:write` permission.
+- Demonstrate one-user bell, native mobile, and Web Push delivery with server-enforced room membership.
+
 This project follows [Semantic Versioning](https://semver.org/). Each marketplace listing version
 must equal `privos-app.json.version` and `package.json.version`; change both release notes and metadata
 in one commit.

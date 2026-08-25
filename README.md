@@ -280,6 +280,10 @@ request shapes — as the part still worth confirming on a real installation.
 
 ## App Platform demo tabs (Step-1 generic platform contract)
 
+### Notification tab
+
+The **Notification** tab demonstrates the room-scoped `mcpapp.notifications.create` built-in Hub tool. Enter a user ID belonging to the current room, a title, and a message, then select **Send notification**. The tool requires optional `notifications:write` consent; the Hub—not the app—selects the authorized room and rejects inactive users or users outside that room. A successful call creates the notification bell record and triggers native mobile and Web Push delivery on a best-effort basis.
+
 Four tabs demonstrate capabilities that landed in the merged hub `bff01ee8` (Step-1 generic
 platform contract). **They are code-ready but exercise the live contract only once this room's
 Hub runs a tenant image built from that merge (tenant.132+) — on an older Hub these calls fail

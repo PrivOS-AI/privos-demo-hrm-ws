@@ -68,6 +68,15 @@
       "degradedBehavior": "The dashboard remains read-only."
     },
     {
+      "scope": "notifications:write",
+      "requirement": "optional",
+      "context": "room",
+      "executionContext": "user",
+      "feature": "notifications.send",
+      "reason": "Send a bell, native mobile, and Web Push notification to one active member of the exact approved room from the Notification demo tab.",
+      "degradedBehavior": "The Notification tab cannot send notifications."
+    },
+    {
       "scope": "files:read",
       "requirement": "optional",
       "context": "room",

@@ -27,6 +27,7 @@ const CATALOG: Readonly<Record<string, CatalogEntry>> = {
 	'lists:read': { contexts: ['workspace', 'room'], executionContexts: ['user', 'background', 'both'] },
 	'lists:query': { contexts: ['workspace', 'room'], executionContexts: ['user', 'background', 'both'] },
 	'lists:write': { contexts: ['workspace', 'room'], executionContexts: ['user', 'background', 'both'] },
+	'notifications:write': { contexts: ['room'], executionContexts: ['user', 'background', 'both'] },
 	'files:read': { contexts: ['workspace', 'room'], executionContexts: ['user', 'background', 'both'] },
 	'files:write': { contexts: ['workspace', 'room'], executionContexts: ['user', 'background', 'both'] },
 	'bot:room:join': { contexts: ['room'], executionContexts: ['user'] },

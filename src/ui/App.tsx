@@ -22,6 +22,7 @@ import AttemptEvidencePanel from './attempt-evidence-panel';
 import AppObjectsPanel from './app-objects-panel';
 import AppDbPanel from './app-db-panel';
 import StoragePanel from './storage-panel';
+import NotificationPanel from './notification-panel';
 
 type Tab =
   | 'identity'
@@ -43,7 +44,8 @@ type Tab =
   | 'attemptEvidence'
   | 'appObjects'
   | 'appDb'
-  | 'storage';
+  | 'storage'
+  | 'notification';
 
 const TABS: { id: Tab; label: string; scope?: string; degradedBehavior?: string }[] = [
   { id: 'identity', label: 'Identity' },
@@ -73,6 +75,7 @@ const TABS: { id: Tab; label: string; scope?: string; degradedBehavior?: string 
   { id: 'appDb', label: 'App Database', scope: 'db:schema:write', degradedBehavior: 'This tab cannot register or use its demo App Database collection.' },
   // No scope: host storage is a browser-local, per-app namespace mediated by the host.
   { id: 'storage', label: 'Storage' },
+  { id: 'notification', label: 'Notification', scope: 'notifications:write', degradedBehavior: 'This app cannot send notifications to room members.' },
 ];
 
 function FeatureUnavailable({ text }: { text: string }) {
@@ -137,6 +140,7 @@ function ThemedApp() {
           {tab === 'appObjects' && <AppObjectsPanel />}
           {tab === 'appDb' && <AppDbPanel />}
           {tab === 'storage' && <StoragePanel />}
+          {tab === 'notification' && <NotificationPanel />}
         </>
       )}
 
