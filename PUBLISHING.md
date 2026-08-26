@@ -10,9 +10,11 @@ Publisher API base: `https://portal.privos.io/api/cloud/marketplace`.
 
 ## 0. Before you package
 
-You need a **creator enrolment** (a `MarketplaceCreator` record) on the account
-that will own the listing, and a cloud publisher session to call the API with.
-A listing you do not own cannot be updated.
+You need a **creator enrolment** (a `MarketplaceCreator` record) on the
+`client.privos.io` account that will own the listing, and nothing else — the
+`privos-app publish` CLI (§3–§4) authorizes interactively in your browser, so
+there is no cloud session to hand-mint. A listing you do not own cannot be
+updated.
 
 Decide the version first. `privos-app.json:version`, `package.json:version`, and
 the `semver` you post when creating the version must all be the same string, or
@@ -34,7 +36,7 @@ digest-pinned image label.
 
 ```bash
 npm run build          # vite build + generate-manifest.ts + manifest:lint
-npm run manifest:lint  # privos-app-lint privos-app.json
+npm run manifest:lint  # privos-app lint privos-app.json
 ```
 
 `manifest:lint` prints the two pins you will need later:
@@ -98,54 +100,94 @@ npm run typecheck && npm test && npm run docker:build
 ## 3. Package the source archive
 
 ```bash
-npm run package        # or: npm run package -- --allow-dirty
+npm run publish:marketplace -- --dry-run
 ```
 
-`scripts/package-source.sh` refuses a dirty tree, scans the worktree for
-credential-like files, builds the zip with `git archive`, re-inspects the
-archive entries, enforces the 200 MB limit, and writes `<archive>.sha256`.
+This packages the app the same way `privos-app publish` does for a real
+publish (see §4) but stops before authorizing or uploading — use it to
+inspect the archive's git revision and sha256 before committing to a
+publish run.
+
+Packaging refuses a dirty tree unless `--allow-dirty` is passed, scans the
+worktree for credential-like files, builds the zip with `git archive`, then
+re-inspects the produced archive's own ZIP entries and enforces the size
+limits below — never from a `git ls-tree` sweep, since that can't reflect
+`.gitattributes export-ignore` or `--allow-dirty` additions the way the
+produced archive does.
 
 What the archive **must** contain, at the root:
 
-- `privos-app.json` — otherwise `manifest_missing`
-- `Dockerfile` — otherwise `dockerfile_missing`
+- `privos-app.json` — otherwise `MISSING_REQUIRED_ENTRY`
+- `Dockerfile` — otherwise `MISSING_REQUIRED_ENTRY`
 
-What it must **not** contain, each rejected as `denied_path`:
+What it must **not** contain, rejected as `DENIED_PATH_IN_ARCHIVE`:
 
-- `.git/`, `node_modules/`, `.privos/skills/`, any `..` traversal
+- `.git/`, `node_modules/`, `dist/`, `dist-source/`, `.privos/skills/`, any
+  `..` traversal
 - any `.env*` path — the rule is `(^|/)\.env(\.|$)`, so **`.env.example`
   counts**
+- credential-like paths (`id_rsa*`, `*.pem`, `*.key`, anything containing
+  `credentials`)
 
 Exclusion is handled by `.gitattributes` `export-ignore` entries, which is why
 `git archive` drops `.env.example` and the agent-context files. Add a new
 entry there rather than deleting files from the zip by hand.
 
-Other archive limits: `.zip` only, 1 byte – 200 MB, ≤ 20,000 entries, ≤ 50 MB
-per file.
+Other archive limits: `.zip` only, 1 byte – 200 MB total, ≤ 20,000 entries,
+≤ 50 MB per file.
 
-Record three pins for the release: the **full 40-character git revision**, the
-**archive sha256**, and the **canonical manifest hash**.
+`scripts/package-source.sh` implements the same policy independently and is
+**retained only as a parity check** — run it in CI or by hand if you want a
+second, non-CLI confirmation that packaging behaves the same way; it is not
+part of the publish path anymore.
 
 ---
 
-## 4. Upload, create the version, submit
+## 4. Authorize, upload, create the version, submit — `privos-app publish`
 
-Multipart, in 5 MB parts. The upload session **expires 24 hours** after it is
-opened, and each part call requires it to still be `OPEN`.
+```bash
+npm run publish:marketplace              # interactive: prints a browser approval URL
+PRIVOS_PUBLISHER_TOKEN=pvp_xxx npm run publish:marketplace -- --yes   # CI, after the first interactive publish
+```
 
-| Step | Call |
-|---|---|
-| 1 | `POST /creator/listings/:id/uploads` — `{ fileName, totalBytes, kind: "APP_SOURCE" }` → returns `uploadId`, `partSizeBytes`, `expiresAt` |
-| 2 | `PUT /creator/uploads/:uploadId/parts/:partNumber` — `{ dataBase64 }`, repeated per part |
-| 3 | `POST /creator/uploads/:uploadId/complete` — validates archive policy, extracts the manifest, returns `sha256` (compare it against your pin) |
-| 4 | `POST /creator/listings/:id/versions` — `{ semver, uploadId, changelog? }` |
-| 5 | `POST /creator/listings/:id/submit` — enters the review pipeline |
+`privos-app publish` (bin from `@privos_ai/app-server`, already a dependency
+of this app) replaces the manual archive-then-eight-API-calls flow. In one
+command it: packages (§3) → authorizes → uploads the archive in sequential
+parts → creates the version → submits → waits up to 60 s for preflight to
+leave `PREFLIGHT_PENDING`.
 
-An upload can be claimed by exactly one version. Submitting requires the
-listing to have `latestVersionId` and `primaryCategoryId` set.
+**Authorization, two modes, both ending in the same scoped grant the Portal
+honors on the publish routes:**
 
-Sessions are short-lived relative to a large upload, so drive this with a
-**resumable script**, not by hand.
+- **Interactive (default).** The CLI prints a URL on
+  `client.privos.io/marketplace/publish?user_code=…` and a short user code.
+  Open it, log in with your **client.privos.io account**, confirm the
+  listing/version/requester shown, and approve. The CLI polls automatically —
+  do not re-run `publish` while it waits. This is the only mode that works
+  the **first** time a listing is published (a human must bind the listing to
+  the manifest once).
+- **Publisher token (CI).** Generate one in Creator Studio (a step-up action:
+  email code or magic link, plus TOTP if your account has 2FA), export it as
+  `PRIVOS_PUBLISHER_TOKEN` in your CI's secret store — **never** paste it into
+  chat, a command argument, or a file — and re-run with `--yes`. Only works on
+  a listing whose first version was already approved interactively; otherwise
+  the CLI fails with `LISTING_NOT_BOUND`.
+
+An upload can be claimed by exactly one version; the CLI drives the entire
+multipart sequence itself, so there is no manual session/expiry bookkeeping.
+
+For the full flag list, the `--json` NDJSON event stream, exit codes, and the
+error-code-to-remediation table (`VERSION_SEMVER_EXISTS`, `PREFLIGHT_FAILED`
+vs `PREFLIGHT_BLOCKED_INFRA` vs the listing-content gate in §6, etc.), see the
+Claude skill shipped with the CLI:
+`node_modules/@privos_ai/app-server/skill/SKILL.md` (also scaffolded into
+`.claude/skills/privos-app-publish/` for apps created with
+`create-privos-mcp-app`).
+
+A legacy hand-driven `.mjs` script from before this CLI existed (minting a
+cloud session by hand and calling the Portal's ~8 publish endpoints directly)
+is **retired** — it predates the authorization/grant model above and must not
+be used.
 
 ---
 
