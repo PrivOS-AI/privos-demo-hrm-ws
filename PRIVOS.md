@@ -13,7 +13,7 @@ deployment default; relay WebSocket is for local development. Both use
 - `npm run build` — build UI, generate `dist/manifest.json`, validate schema v2, and print canonical hashes.
 - `npm run typecheck && npm test && npm run preflight` — required verification.
 - `npm run package` — deterministic tracked-source archive; requires a clean tree (parity check only, see PUBLISHING.md §3).
-- `npm run publish:marketplace` — `privos-app publish`: package, authorize, upload, version, submit in one command; see PUBLISHING.md and the `privos-app-publish` Claude skill (`.claude/skills/privos-app-publish/SKILL.md`) for the full flow, `--json` events, and error remediation.
+- `npm run publish:marketplace` — `privos-app publish`: package, authorize, upload, version, submit in one command; see PUBLISHING.md and the `privos-app-publish` agent skill for the full flow, `--json` events, and error remediation. The skill is provided for every agent runtime — `.claude/skills/`, `.privos/skills/`, `.agents/skills/`, and `.gemini/skills/` (identical `privos-app-publish/SKILL.md` + `references/errors.md`).
 - `npm run docker:build` — isolated marketplace image build.
 
 ## Invariants
