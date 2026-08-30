@@ -1088,3 +1088,133 @@ textarea:focus {
   resize: vertical;
   min-height: 200px;
 }
+
+/* Theme inheritance panel — deliberately references `--base-*` directly (not the
+ * app's own --accent/--bg indirection above) so the swatches/sample UI prove the raw
+ * Hub-broadcast tokens work, not just this file's derived palette. Each rule still
+ * falls back to a literal value so the panel renders correctly standalone. */
+.theme-demo-container {
+  max-width: 640px;
+}
+
+.theme-demo-intro {
+  opacity: 0.8;
+  line-height: 1.5;
+}
+
+.theme-demo-mode {
+  margin-bottom: 12px;
+  font-size: 0.95rem;
+}
+
+.theme-demo-degraded {
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-base);
+  background: var(--bg-hover);
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+}
+
+.theme-demo-token-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 24px;
+}
+
+.theme-demo-token-row {
+  display: grid;
+  grid-template-columns: 1fr max-content max-content 1fr;
+  gap: 10px;
+  align-items: center;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border-light);
+  font-size: 0.82rem;
+}
+
+.theme-demo-token-label {
+  color: var(--text);
+}
+
+.theme-demo-token-code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.theme-demo-token-value {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: var(--text-faint);
+  white-space: nowrap;
+}
+
+.theme-demo-swatch {
+  display: inline-block;
+  width: 22px;
+  height: 22px;
+  border-radius: 4px;
+  border: 1px solid var(--base-border, #ccc);
+}
+
+.theme-demo-radius-sample {
+  display: inline-block;
+  width: 22px;
+  height: 22px;
+  background: var(--base-primary, #156ff5);
+}
+
+.theme-demo-font-sample {
+  display: inline-block;
+  min-width: 22px;
+  text-align: center;
+  font-size: 0.95rem;
+}
+
+.theme-demo-sample-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.theme-demo-btn {
+  padding: 10px 18px;
+  border: none;
+  border-radius: var(--base-radius-md, 6px);
+  background: var(--base-primary, #156ff5);
+  color: #fff;
+  font-family: var(--base-font-family, inherit);
+  font-size: 0.95rem;
+  cursor: pointer;
+}
+
+.theme-demo-btn:hover {
+  background: var(--base-primary-hover, #095ad2);
+}
+
+.theme-demo-link {
+  color: var(--base-info, #156ff5);
+  font-family: var(--base-font-family, inherit);
+}
+
+.theme-demo-card {
+  border: 1px solid var(--base-border, #e4e7ea);
+  border-radius: var(--base-radius-md, 6px);
+  background: var(--base-bg-surface, #fff);
+  padding: 14px 16px;
+}
+
+.theme-demo-card-title {
+  font-weight: 600;
+  color: var(--base-text-primary, #1f2329);
+  font-family: var(--base-font-family, inherit);
+  margin-bottom: 6px;
+}
+
+.theme-demo-card-body {
+  color: var(--base-text-secondary, #2f343d);
+  font-family: var(--base-font-family, inherit);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}

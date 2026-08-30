@@ -23,6 +23,7 @@ import AppObjectsPanel from './app-objects-panel';
 import AppDbPanel from './app-db-panel';
 import StoragePanel from './storage-panel';
 import NotificationPanel from './notification-panel';
+import ThemeInheritancePanel from './theme-inheritance-panel';
 
 type Tab =
   | 'identity'
@@ -45,7 +46,8 @@ type Tab =
   | 'appObjects'
   | 'appDb'
   | 'storage'
-  | 'notification';
+  | 'notification'
+  | 'themeInheritance';
 
 const TABS: { id: Tab; label: string; scope?: string; degradedBehavior?: string }[] = [
   { id: 'identity', label: 'Identity' },
@@ -76,6 +78,8 @@ const TABS: { id: Tab; label: string; scope?: string; degradedBehavior?: string 
   // No scope: host storage is a browser-local, per-app namespace mediated by the host.
   { id: 'storage', label: 'Storage' },
   { id: 'notification', label: 'Notification', scope: 'notifications:write', degradedBehavior: 'This app cannot send notifications to room members.' },
+  // No scope: theme tokens ride the same non-secret HOST_CONTEXT_CHANGED push as `theme`/roomId.
+  { id: 'themeInheritance', label: 'Theme inheritance' },
 ];
 
 function FeatureUnavailable({ text }: { text: string }) {
@@ -141,6 +145,7 @@ function ThemedApp() {
           {tab === 'appDb' && <AppDbPanel />}
           {tab === 'storage' && <StoragePanel />}
           {tab === 'notification' && <NotificationPanel />}
+          {tab === 'themeInheritance' && <ThemeInheritancePanel />}
         </>
       )}
 
