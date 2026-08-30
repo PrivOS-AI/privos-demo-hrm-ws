@@ -1,25 +1,36 @@
 /* PrivOS Demo MCP App — theme-aware styles */
 
+/*
+ * `@privos_ai/app-react`'s PrivosAppProvider writes the workspace theme onto
+ * this document's <html> as `--base-*` custom properties (see HOST_CONTEXT_CHANGED
+ * in the SDK) and keeps `data-theme` in sync with the host's light/dark mode. Every
+ * `--base-*` reference below falls back to this demo's own hardcoded palette, so the
+ * app still looks correct standalone (outside a Privos workspace) or before the
+ * first host context arrives.
+ */
+:root {
+  --radius-base: var(--base-radius-md, 6px);
+}
+
 /* Light theme (default)
- * --rcx-color-* vars don't resolve inside sandboxed iframe — use hardcoded values.
  * surfaceColor from HOST_CONTEXT_CHANGED overrides --bg at runtime for exact match.
  */
 :root, [data-theme="light"] {
-  --bg: #F7F8FA;
-  --bg-card: #FFFFFF;
-  --bg-hover: #F2F3F5;
+  --bg: var(--base-bg-main, #F7F8FA);
+  --bg-card: var(--base-bg-surface, #FFFFFF);
+  --bg-hover: var(--base-bg-menu, #F2F3F5);
   --bg-input: #FFFFFF;
-  --bg-table-head: #F7F8FA;
+  --bg-table-head: var(--base-bg-header, #F7F8FA);
   --bg-editing: #FFFEF0;
   --bg-field-panel: #F7F8FA;
-  --text: #1F2329;
-  --text-secondary: #2F343D;
+  --text: var(--base-text-primary, #1F2329);
+  --text-secondary: var(--base-text-secondary, #2F343D);
   --text-muted: #6C737A;
   --text-faint: #9EA2A8;
-  --border: #E4E7EA;
+  --border: var(--base-border, #E4E7EA);
   --border-light: #EBECEF;
-  --accent: #156FF5;
-  --accent-hover: #095AD2;
+  --accent: var(--base-primary, #156FF5);
+  --accent-hover: var(--base-primary-hover, #095AD2);
   --success-bg: #C1EBDD;
   --success-text: #148660;
   --error-bg: #FFE9EC;
@@ -31,21 +42,21 @@
 
 /* Dark theme — surfaceColor from host overrides --bg for exact room background match */
 [data-theme="dark"] {
-  --bg: #080d0f;
-  --bg-card: #131a1e;
-  --bg-hover: #1a2228;
+  --bg: var(--base-bg-main, #080d0f);
+  --bg-card: var(--base-bg-surface, #131a1e);
+  --bg-hover: var(--base-bg-menu, #1a2228);
   --bg-input: #1a2228;
-  --bg-table-head: #131a1e;
+  --bg-table-head: var(--base-bg-header, #131a1e);
   --bg-editing: #131a1e;
   --bg-field-panel: #080d0f;
-  --text: #E4E7EA;
-  --text-secondary: #9EA2A8;
+  --text: var(--base-text-primary, #E4E7EA);
+  --text-secondary: var(--base-text-secondary, #9EA2A8);
   --text-muted: #9EA2A8;
   --text-faint: #6C737A;
-  --border: #353B45;
+  --border: var(--base-border, #353B45);
   --border-light: #2F343D;
-  --accent: #095AD2;
-  --accent-hover: #10529E;
+  --accent: var(--base-primary, #095AD2);
+  --accent-hover: var(--base-primary-hover, #10529E);
   --success-bg: #1A3A2A;
   --success-text: #58AD90;
   --error-bg: #3A1A1A;
@@ -57,9 +68,15 @@
 
 body {
   margin: 0;
-  font-family: system-ui, -apple-system, sans-serif;
+  font-family: var(--base-font-family, system-ui, -apple-system, sans-serif);
   background: var(--bg);
   color: var(--text);
+}
+
+/* No explicit anchor styling existed before; --base-info is the host's link/info
+   colour, so this is the natural place to consume it. */
+a {
+  color: var(--base-info, var(--accent));
 }
 
 .container {
@@ -91,7 +108,7 @@ select {
   width: 100%;
   padding: 10px 12px;
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--radius-base);
   font-size: 0.95rem;
   box-sizing: border-box;
   background: var(--bg-input);
@@ -126,7 +143,7 @@ select:focus {
   background: transparent;
   border: 1px solid var(--border);
   color: var(--text-muted);
-  border-radius: 6px;
+  border-radius: var(--radius-base);
   font-size: 0.9rem;
   cursor: pointer;
 }
@@ -162,7 +179,7 @@ select:focus {
   align-items: center;
   padding: 8px 10px;
   border: 1px solid var(--border-light);
-  border-radius: 6px;
+  border-radius: var(--radius-base);
   margin-bottom: 6px;
   background: var(--bg-card);
 }
@@ -263,7 +280,7 @@ select:focus {
   min-height: 96px;
   padding: 12px;
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--radius-base);
   font-size: 0.95rem;
   line-height: 1.5;
   font-family: inherit;
@@ -277,7 +294,7 @@ select:focus {
 .theme-toggle {
   display: inline-flex;
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--radius-base);
   overflow: hidden;
 }
 
@@ -310,7 +327,7 @@ select:focus {
   background: var(--accent);
   color: white;
   border: none;
-  border-radius: 6px;
+  border-radius: var(--radius-base);
   font-size: 1rem;
   cursor: pointer;
   margin-top: 4px;
@@ -340,7 +357,7 @@ select:focus {
   background: var(--success-bg);
   color: var(--success-text);
   padding: 12px;
-  border-radius: 6px;
+  border-radius: var(--radius-base);
   text-align: center;
   margin-bottom: 16px;
 }
@@ -353,7 +370,7 @@ select:focus {
   background: var(--error-bg);
   color: var(--error-text);
   padding: 12px;
-  border-radius: 6px;
+  border-radius: var(--radius-base);
   text-align: center;
   margin-bottom: 16px;
 }
@@ -363,7 +380,7 @@ select:focus {
   border: 1px solid var(--accent);
   color: var(--accent);
   padding: 8px 16px;
-  border-radius: 6px;
+  border-radius: var(--radius-base);
   cursor: pointer;
   margin-top: 8px;
 }
@@ -376,7 +393,7 @@ textarea {
   width: 100%;
   padding: 10px 12px;
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--radius-base);
   font-size: 0.95rem;
   box-sizing: border-box;
   background: var(--bg-input);
@@ -395,7 +412,7 @@ textarea:focus {
   border: 1px dashed var(--text-faint);
   color: var(--text-muted);
   padding: 8px 14px;
-  border-radius: 6px;
+  border-radius: var(--radius-base);
   cursor: pointer;
   font-size: 0.85rem;
   margin-bottom: 12px;
@@ -409,7 +426,7 @@ textarea:focus {
 
 .add-field-panel {
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--radius-base);
   padding: 12px;
   margin-bottom: 12px;
   background: var(--bg-field-panel);
@@ -474,7 +491,7 @@ textarea:focus {
   border-collapse: collapse;
   font-size: 0.85rem;
   background: var(--bg-card);
-  border-radius: 6px;
+  border-radius: var(--radius-base);
   overflow: hidden;
   border: 1px solid var(--border);
 }
@@ -682,7 +699,7 @@ textarea:focus {
   background: var(--danger);
   color: white;
   border: none;
-  border-radius: 6px;
+  border-radius: var(--radius-base);
   font-size: 0.9rem;
   cursor: pointer;
   font-weight: 500;
@@ -703,7 +720,7 @@ textarea:focus {
   background: none;
   border: 1px solid var(--border);
   color: var(--text-muted);
-  border-radius: 6px;
+  border-radius: var(--radius-base);
   font-size: 0.9rem;
   cursor: pointer;
 }
@@ -732,7 +749,7 @@ textarea:focus {
   padding: 8px 10px;
   background: transparent;
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--radius-base);
   cursor: pointer;
   font-size: 1rem;
   line-height: 1;
@@ -752,7 +769,7 @@ textarea:focus {
   padding: 6px 10px;
   margin-bottom: 8px;
   border: 1px solid var(--border-light);
-  border-radius: 6px;
+  border-radius: var(--radius-base);
   background: var(--bg-card);
   font-size: 0.85rem;
   color: var(--text);
@@ -807,7 +824,7 @@ textarea:focus {
   padding: 10px;
   background: var(--bg-input);
   border: 1px solid var(--border-light);
-  border-radius: 6px;
+  border-radius: var(--radius-base);
   overflow-x: auto;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 0.82rem;
@@ -850,7 +867,7 @@ textarea:focus {
   text-align: left;
   padding: 8px 10px;
   border: 1px solid transparent;
-  border-radius: 6px;
+  border-radius: var(--radius-base);
   background: transparent;
   color: var(--text);
   cursor: pointer;
@@ -910,7 +927,7 @@ textarea:focus {
 .agent-block-tool,
 .agent-block-result-box {
   border: 1px solid var(--border-light);
-  border-radius: 6px;
+  border-radius: var(--radius-base);
   background: var(--bg-input);
   padding: 6px 10px;
 }
@@ -936,7 +953,7 @@ textarea:focus {
 .chat-json-block {
   margin-top: 8px;
   border: 1px solid var(--border-light);
-  border-radius: 6px;
+  border-radius: var(--radius-base);
   background: var(--bg-input);
 }
 .chat-json-block > summary {
@@ -973,7 +990,7 @@ textarea:focus {
   background: transparent;
   border: 1px solid var(--accent);
   color: var(--accent);
-  border-radius: 6px;
+  border-radius: var(--radius-base);
   font-size: 0.9rem;
   cursor: pointer;
   white-space: nowrap;
@@ -1052,7 +1069,7 @@ textarea:focus {
 .poem-content-input {
   padding: 10px 12px;
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--radius-base);
   background: var(--bg-input);
   color: var(--text);
   font-family: inherit;
