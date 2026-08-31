@@ -278,6 +278,34 @@ request shapes — as the part still worth confirming on a real installation.
    confirm C's visibility flips accordingly — this is what proves the ASSIGNEE field, not room
    membership, gates isolated-list item visibility.
 
+### Custom permissions tab
+
+The **Custom permissions** tab demonstrates the room custom-permission feature: an owner/admin
+defines a named permission and assigns it to members, then grants an isolated-list item's
+`additionalReaders` / `additionalEditors` to that permission so its holders can read (or read+edit)
+the item without being its creator or assignee. Flow:
+
+1. **Setup** (current-user REST, owner/admin — no app scope): `POST rooms.customPermissions.create`
+   then `POST rooms.customPermissions.assign`.
+2. **Read** (`custom-permissions:read`): `mcpapp.rooms.customPermissions.list` +
+   `mcpapp.rooms.customPermissions.members`.
+3. **Grant** (`custom-permissions:write`): create an isolated list + item, then
+   `mcpapp.rooms.customPermissions.setItemAccess` with the permission id in `additionalReaders`
+   (read-only) or `additionalEditors` (read+edit).
+
+`setItemAccess` still requires the acting user to be room owner/admin and every id to exist in the
+room catalog — the Hub enforces both regardless of the granted scope. Minting/assigning permissions
+is deliberately NOT an app-scoped operation; it stays a human owner/admin action via REST. See
+[`src/ui/custom-permissions-panel.tsx`](src/ui/custom-permissions-panel.tsx) and the pure grant-patch
+helpers in [`src/ui/custom-permissions-helpers.ts`](src/ui/custom-permissions-helpers.ts)
+(tested in [`tests/custom-permissions-helpers.spec.ts`](tests/custom-permissions-helpers.spec.ts)).
+
+| Tool | Arguments |
+|------|-----------|
+| `mcpapp.rooms.customPermissions.list` | `roomId?` (defaults to approved room) |
+| `mcpapp.rooms.customPermissions.members` | `roomId?`, `permissionId` |
+| `mcpapp.rooms.customPermissions.setItemAccess` | `itemId`, `additionalReaders?`, `additionalEditors?` |
+
 ## App Platform demo tabs (Step-1 generic platform contract)
 
 ### Notification tab
