@@ -10,6 +10,17 @@ export const PREFLIGHT_RULESET = 'marketplace-validation-mirror/2026-08-02';
 const failures: string[] = [];
 const fail = (message: string, fix: string) => failures.push(`${message}\n  Fix: ${fix}`);
 
+/** `src/ui` nests heavy panels under `panels/` — a call-site annotation there must count too. */
+function collectUiSourceFiles(dir: string): string[] {
+  const files: string[] = [];
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) files.push(...collectUiSourceFiles(full));
+    else if (/\.(ts|tsx)$/.test(entry.name)) files.push(full);
+  }
+  return files;
+}
+
 async function main() {
 console.log(`PrivOS MCP app preflight (${PREFLIGHT_RULESET})`);
 console.log('NOTICE: these checks mirror the portal rules until the shared marketplace validation module is published.');
@@ -71,8 +82,8 @@ if (!pkg.dockerfilePath || !fs.existsSync(path.resolve(pkg.dockerfilePath))) {
 }
 
 const scopeDocs = fs.existsSync('SCOPES.md') ? fs.readFileSync('SCOPES.md', 'utf8') : '';
-const uiSources = fs.readdirSync('src/ui').filter((name) => /\.(ts|tsx)$/.test(name))
-  .map((name) => fs.readFileSync(path.join('src/ui', name), 'utf8')).join('\n');
+const uiSources = collectUiSourceFiles(path.resolve('src/ui'))
+  .map((file) => fs.readFileSync(file, 'utf8')).join('\n');
 const lint = lintManifest(manifest);
 console.log(`canonicalManifestHash=${lint.canonicalManifestHash}`);
 console.log(`publisherPermissionDeclarationHash=${lint.publisherPermissionDeclarationHash || '<unavailable>'}`);

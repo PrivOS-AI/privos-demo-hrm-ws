@@ -1,28 +1,40 @@
-import { useState } from 'react';
+import { lazy, Suspense, useEffect, useState, type ReactNode } from 'react';
 import { PrivosAppProvider, usePrivosContext } from '@privos_ai/app-react';
 import { ThemeProvider, ThemeToggle } from './theme-provider';
 import HRManagementDashboard from './contact-collector-form';
 import FileUploadPanel from './file-upload-panel';
-import AiChatPanel from './ai-chat-panel';
 import AiPoemPanel from './ai-poem-panel';
-import AiHistoryPanel from './ai-history-panel';
 import SkillsPanel from './skills-panel';
-import AgentSetUploadPanel from './agent-set-upload-panel';
 import SandboxConnectPanel from './sandbox-connect-panel';
 import WhoamiPanel from './whoami-panel';
 import InfoPanel from './info-panel';
 import LicensePanel from './license-panel';
 import AppOwnedChatPanel from './app-owned-chat-panel';
 import AgentBotPanel from './agent-bot-panel';
-import EmbedsPanel from './embeds-panel';
-import BotWorkloadPanel from './bot-workload-panel';
 import AssigneeDemoPanel from './assignee-demo-panel';
 import AttemptLifecyclePanel from './attempt-lifecycle-panel';
 import AttemptEvidencePanel from './attempt-evidence-panel';
 import AppObjectsPanel from './app-objects-panel';
 import AppDbPanel from './app-db-panel';
-import StoragePanel from './storage-panel';
 import NotificationPanel from './notification-panel';
+import { LazyBoundary } from './lazy-boundary';
+
+// Heavy panels split into their own chunks — loaded only when their tab is
+// opened, so a cold app open never pays for AI chat/history rendering,
+// workspace-factory upload plumbing, embed iframes, or the storage demo.
+const AiChatPanel = lazy(() => import('./panels/ai-chat-panel'));
+const AiHistoryPanel = lazy(() => import('./panels/ai-history-panel'));
+const AgentSetUploadPanel = lazy(() => import('./panels/agent-set-upload-panel'));
+const BotWorkloadPanel = lazy(() => import('./panels/bot-workload-panel'));
+const EmbedsPanel = lazy(() => import('./panels/embeds-panel'));
+const StoragePanel = lazy(() => import('./panels/storage-panel'));
+
+declare global {
+  interface Window {
+    /** Set once React has committed the first render — the shell watchdog's success signal. */
+    __privosUiBooted?: boolean;
+  }
+}
 
 type Tab =
   | 'identity'
@@ -87,6 +99,17 @@ function FeatureUnavailable({ text }: { text: string }) {
   );
 }
 
+/** Suspense + error boundary shared by every lazily loaded panel. */
+function LazyPanel({ children }: { children: ReactNode }) {
+  return (
+    <LazyBoundary>
+      <Suspense fallback={<div className="container"><p className="loading-text">Loading…</p></div>}>
+        {children}
+      </Suspense>
+    </LazyBoundary>
+  );
+}
+
 function ThemedApp() {
   const { theme, effectiveScopes } = usePrivosContext();
   const [tab, setTab] = useState<Tab>('identity');
@@ -121,25 +144,25 @@ function ThemedApp() {
       {(!activeDefinition.scope || (capabilityResolved && activeGranted)) && (
         <>
           {tab === 'identity' && <WhoamiPanel />}
-          {tab === 'agentSets' && <AgentSetUploadPanel />}
+          {tab === 'agentSets' && <LazyPanel><AgentSetUploadPanel /></LazyPanel>}
           {tab === 'info' && <InfoPanel />}
           {tab === 'records' && <HRManagementDashboard />}
           {tab === 'license' && <LicensePanel />}
           {tab === 'files' && <FileUploadPanel />}
-          {tab === 'chat' && <AiChatPanel />}
+          {tab === 'chat' && <LazyPanel><AiChatPanel /></LazyPanel>}
           {tab === 'poem' && <AiPoemPanel />}
-          {tab === 'history' && <AiHistoryPanel />}
+          {tab === 'history' && <LazyPanel><AiHistoryPanel /></LazyPanel>}
           {tab === 'skills' && <SkillsPanel />}
           {tab === 'sandbox' && <SandboxConnectPanel />}
           {tab === 'agent' && <AgentBotPanel />}
-          {tab === 'embeds' && <EmbedsPanel />}
-          {tab === 'workload' && <BotWorkloadPanel />}
+          {tab === 'embeds' && <LazyPanel><EmbedsPanel /></LazyPanel>}
+          {tab === 'workload' && <LazyPanel><BotWorkloadPanel /></LazyPanel>}
           {tab === 'assignees' && <AssigneeDemoPanel />}
           {tab === 'attemptLifecycle' && <AttemptLifecyclePanel />}
           {tab === 'attemptEvidence' && <AttemptEvidencePanel />}
           {tab === 'appObjects' && <AppObjectsPanel />}
           {tab === 'appDb' && <AppDbPanel />}
-          {tab === 'storage' && <StoragePanel />}
+          {tab === 'storage' && <LazyPanel><StoragePanel /></LazyPanel>}
           {tab === 'notification' && <NotificationPanel />}
         </>
       )}
@@ -151,6 +174,10 @@ function ThemedApp() {
 }
 
 export default function App() {
+  useEffect(() => {
+    window.__privosUiBooted = true;
+  }, []);
+
   return (
     <PrivosAppProvider>
       <ThemedApp />

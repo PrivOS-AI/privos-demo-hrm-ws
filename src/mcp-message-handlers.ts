@@ -1,14 +1,22 @@
 /**
  * MCP JSON-RPC method handlers for the relay demo app.
- * UI is delivered fully inline via resources/read — no external URL references.
- * In production: reads built assets from dist/ui/ and embeds them in HTML.
- * In development: reads source and builds on-the-fly via Vite.
+ * Production: the shell (`builtUi.renderHtml()`) and its hashed `assets/`
+ * files are split over separate `resources/read` calls — the Hub fetches
+ * assets once per installation generation and re-serves them from its own
+ * origin, so the same 250 KB bundle no longer travels the relay on every tab
+ * open. In development: reads source and builds on-the-fly via Vite.
  */
-import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'node:url';
 
-import { getPlatformContext, publicUrlFor, type VerifiedActor } from '@privos_ai/app-server';
+import {
+	getPlatformContext,
+	publicUrlFor,
+	serveBuiltUi,
+	INVALID_PARAMS,
+	type ServeBuiltUi,
+	type VerifiedActor,
+} from '@privos_ai/app-server';
 
 import _pkg from '../privos-app.json';
 import { getAppIconDataUri } from './app-icon';
@@ -29,7 +37,18 @@ const BULK_EXPORT_TOOL = 'hr_bulk_export';
 // Pure data (no UI) tool: proves the configured agent bot credential actually
 // authenticates against the Hub. See agent-bot-credential-check.ts.
 const CREDENTIAL_CHECK_TOOL = 'hr_agent_bot_credential_check';
-const UI_RESOURCE_URI = 'ui://privos-mcp-app-demo/form.html';
+/**
+ * `ui://<appSlug>/…` — `appSlug` MUST be `app.appId`, i.e. `privos-app.json`'s `name`
+ * (`ai.privos.mcp-app-demo`), never a different, human-friendlier host string. The Hub resolves
+ * `serveBuiltUi`'s asset/manifest URIs from the registered app id, not from this resource URI —
+ * a mismatch here 404s every asset behind a correct-looking "App assets unavailable" watchdog.
+ */
+const UI_RESOURCE_URI = `ui://${pkg.name}/form.html`;
+/** `appSlug` for `serveBuiltUi` — must equal `app.appId` (`privos-app.json`'s `name`). Derived from
+ * {@link UI_RESOURCE_URI}'s host so the two can never drift apart again. */
+const UI_APP_SLUG = new URL(UI_RESOURCE_URI).host;
+/** Sits beside {@link UI_RESOURCE_URI}, not under the `assets/` prefix — matches the SDK's own convention. */
+const ASSETS_MANIFEST_URI = `${UI_RESOURCE_URI.slice(0, UI_RESOURCE_URI.lastIndexOf('/') + 1)}assets-manifest.json`;
 
 /**
  * Embed origins this app declares, read straight from the published manifest so the runtime
@@ -41,13 +60,25 @@ const UI_DECLARED_CSP: Record<string, string[]> | undefined = (pkg.tools as any[
 
 const appIcon = getAppIconDataUri();
 
-/** Cache the built UI HTML — invalidated when dist changes (dev watch mode) */
-let cachedUiHtml: string | null = null;
-let lastBuildMtime = 0;
+/**
+ * Built once, lazily: constructing before `dist/ui` exists (e.g. `npm test`
+ * runs ahead of `npm run build` in `verify:fast-pr`) must not crash every
+ * caller that merely imports this module. `serveBuiltUi` throws at
+ * construction on a malformed build (non-relative asset tags, unhashed/
+ * oversized/`.map` files under `assets/`) — that failure surfaces the first
+ * time the UI is actually requested, never earlier.
+ */
+let builtUi: ServeBuiltUi | null = null;
+function getBuiltUi(): ServeBuiltUi {
+	if (!builtUi) {
+		builtUi = serveBuiltUi({ distDir: path.join(moduleDir, '../dist/ui'), appSlug: UI_APP_SLUG });
+	}
+	return builtUi;
+}
 
 /**
  * When set, the UI is served live from a Vite dev server at this public origin
- * (HMR + breakpoints) instead of an inlined production bundle. See dev-server.ts.
+ * (HMR + breakpoints) instead of the split production bundle. See dev-server.ts.
  */
 let devPublicUrl: string | null = null;
 
@@ -56,9 +87,9 @@ export function setDevPublicUrl(publicUrl: string): void {
 	devPublicUrl = publicUrl.replace(/\/$/, '');
 }
 
-/** Clear cache so next resources/read picks up rebuilt UI */
-export function invalidateUiCache(): void {
-	cachedUiHtml = null;
+/** The shell HTML for the current mode — live dev server, or the built-and-cached production shell. */
+function currentShellHtml(): string {
+	return devPublicUrl ? getDevUiHtml(devPublicUrl) : getBuiltUi().renderHtml();
 }
 
 /**
@@ -190,26 +221,60 @@ export async function handleMcpMessage(
 						resource: {
 							uri: UI_RESOURCE_URI,
 							mimeType: 'text/html;profile=mcp-app',
-							text: getInlineUiHtml(),
+							text: currentShellHtml(),
 						},
 					},
 				],
 			};
 
 		case 'resources/read':
-			return {
-				contents: [
-					{
-						uri: params?.uri || UI_RESOURCE_URI,
-						mimeType: 'text/html;profile=mcp-app',
-						text: getInlineUiHtml(),
-					},
-				],
-			};
+			return handleResourcesRead(params?.uri);
 
 		default:
 			throw new Error(`Unknown method: ${method}`);
 	}
+}
+
+/**
+ * `resources/read` branches on the requested URI: the shell, the assets
+ * manifest, or one split asset. Any other URI is refused — before the split,
+ * this handler echoed the UI HTML for every URI it was asked about; that
+ * silent fallback is gone by design (see the demo's CHANGELOG).
+ *
+ * Dev mode short-circuits ahead of all of this: the live Vite dev server is
+ * the only source of truth there (no split assets exist to read), so it keeps
+ * echoing the dev shell for whatever URI was requested, matching the
+ * pre-split behavior exactly.
+ */
+function handleResourcesRead(uri: unknown): { contents: unknown[] } {
+	if (devPublicUrl) {
+		return {
+			contents: [
+				{
+					uri: typeof uri === 'string' ? uri : UI_RESOURCE_URI,
+					mimeType: 'text/html;profile=mcp-app',
+					text: currentShellHtml(),
+				},
+			],
+		};
+	}
+
+	if (uri === UI_RESOURCE_URI) {
+		return { contents: [{ uri: UI_RESOURCE_URI, mimeType: 'text/html;profile=mcp-app', text: currentShellHtml() }] };
+	}
+
+	if (uri === ASSETS_MANIFEST_URI) {
+		return {
+			contents: [{ uri: ASSETS_MANIFEST_URI, mimeType: 'application/json', text: JSON.stringify(getBuiltUi().readAssetsManifest()) }],
+		};
+	}
+
+	const asset = typeof uri === 'string' ? getBuiltUi().readAsset(uri) : null;
+	if (asset) return { contents: [asset] };
+
+	throw Object.assign(new Error(`Unknown resource: ${typeof uri === 'string' ? uri : '<missing>'}`), {
+		code: INVALID_PARAMS,
+	});
 }
 
 /**
@@ -296,56 +361,4 @@ function getDevUiHtml(publicUrl: string): string {
   <script type="module" src="${base}/main.tsx"></script>
 </body>
 </html>`;
-}
-
-/**
- * Build a fully self-contained HTML page with inlined JS and CSS.
- * Reads from dist/ui/ (Vite build output). Run `npm run build` first.
- */
-function getInlineUiHtml(): string {
-	// Dev mode: serve live from the Vite dev server for HMR + breakpoints.
-	if (devPublicUrl) return getDevUiHtml(devPublicUrl);
-
-	const distDir = path.join(moduleDir, '../dist/ui');
-
-	// In dev watch mode, check if build output changed since last cache
-	const assetsPath = path.join(distDir, 'assets');
-	if (fs.existsSync(assetsPath)) {
-		const stat = fs.statSync(assetsPath);
-		if (stat.mtimeMs !== lastBuildMtime) {
-			cachedUiHtml = null;
-			lastBuildMtime = stat.mtimeMs;
-		}
-	}
-
-	if (cachedUiHtml) return cachedUiHtml;
-
-	// Find built JS and CSS files in dist/ui/assets/
-	const assetsDir = path.join(distDir, 'assets');
-	if (!fs.existsSync(assetsDir)) {
-		throw new Error('UI not built. Run `npm run build` first, then restart.');
-	}
-
-	const files = fs.readdirSync(assetsDir);
-	const jsFile = files.find((f) => f.endsWith('.js'));
-	const cssFile = files.find((f) => f.endsWith('.css'));
-
-	const jsContent = jsFile ? fs.readFileSync(path.join(assetsDir, jsFile), 'utf-8') : '';
-	const cssContent = cssFile ? fs.readFileSync(path.join(assetsDir, cssFile), 'utf-8') : '';
-
-	cachedUiHtml = `<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-	  <title>${pkg.title || 'PrivOS Demo MCP App'}</title>
-  <style>${cssContent}</style>
-</head>
-<body>
-  <div id="root"></div>
-  <script type="module">${jsContent}</script>
-</body>
-</html>`;
-
-	return cachedUiHtml;
 }

@@ -361,6 +361,33 @@ Local Pro test:
 PRIVOS_APP_LICENSE='{"tier":"pro","state":"active"}' npm start
 ```
 
+## UI build and asset delivery
+
+`npm run build` compiles `src/ui` with Vite (`vite.config.ts`: `base: './'`, code-split
+`manualChunks`, `build.manifest: true`, `build.sourcemap: false`, `build.assetsInlineLimit: 0`)
+into a small shell (`dist/ui/index.html`) plus hashed, content-addressed files under
+`dist/ui/assets/`. `@privos_ai/app-server`'s `serveBuiltUi` helper (`src/mcp-message-handlers.ts`)
+reads that build output once and answers three kinds of `resources/read` request: the shell
+(`ui://ai.privos.mcp-app-demo/form.html`, meta-tagged for relay delivery, with an inline boot
+watchdog), the assets manifest (`ui://ai.privos.mcp-app-demo/assets-manifest.json`), and each
+individual asset (`ui://ai.privos.mcp-app-demo/assets/<file>`). Any other URI is refused with
+JSON-RPC `-32602`.
+
+The Hub fetches the shell once per open and the hashed assets once per installation generation,
+caches them, and re-serves everyone from its own origin behind a short-lived per-user token —
+**this app's built bundle is never served to end users unmodified from this container**, and it
+must never embed a secret (no `VITE_*` build-time env values; the platform's own non-secret
+values are read at runtime instead, see [Environment configuration](#environment-configuration)).
+Two build constraints follow directly from that: no sourcemaps are ever produced, and nothing may
+be served from a Vite `publicDir` — every asset the UI references (including the bundled sample
+agent-set archive) must be a real hashed file under `dist/ui/assets/`, which the build enforces at
+construction time (`serveBuiltUi` throws on an unhashed, oversized, or `.map` file, or on a shell
+with a non-relative asset reference).
+
+**This build requires the installing Hub to be at tenant.N or later** — an older Hub has no route
+to fetch the split-out asset files, and the shell's boot watchdog shows a "App assets unavailable
+— Retry" panel instead of a blank frame until the tenant is upgraded.
+
 ## Verification
 
 ```bash

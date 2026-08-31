@@ -4,6 +4,36 @@ This project follows [Semantic Versioning](https://semver.org/). Each marketplac
 must equal `privos-app.json.version` and `package.json.version`; change both release notes and metadata
 in one commit.
 
+## [2.16.0] - 2026-08-31
+
+### Changed
+
+- **UI split into a shell + hashed assets, adopting `@privos_ai/app-server`'s `serveBuiltUi`
+  helper (`^0.10.0`).** The whole 549 KB single-chunk bundle (`ai.privos.mcp-app-demo` 2.15.1,
+  see `tests/fixtures/ui-inline-2.15.1.html` for the exact byte-for-byte inlined page this
+  replaces) is no longer inlined into the `ui://…/form.html` resource on every `resources/read`.
+  Instead the Hub reads a small shell (< 4 KB: relay opt-in meta + boot watchdog + relative
+  `./assets/…` tags) plus the code-split, content-hashed `assets/` files it references, addressed
+  over `ui://ai.privos.mcp-app-demo/assets/<file>` and `ui://ai.privos.mcp-app-demo/assets-manifest.json`.
+  `resources/read` now refuses any other URI with JSON-RPC `-32602` — before this release it
+  echoed the full UI for any requested URI, which is no longer the case.
+  - Vite now builds with `base: './'`, a `manualChunks: { vendor: [...] }` split, and
+    `build.manifest: true`; heavy panels (AI chat, AI history, agent-set upload, bot workload,
+    embeds, storage, and their shared markdown renderer) are `React.lazy`-loaded from
+    `src/ui/panels/`, guarded by an error boundary that shows "A new version of this app is
+    available — Reload" if a chunk fails to load (a stale generation after an upgrade).
+  - The bundled sample agent-set archive is now a hashed `assets/` file
+    (`sample-agent-set.tar-<hash>.gz`) instead of a static `public/` copy; `src/ui/public/` is
+    gone — every referenced asset must be a hashed file, none may be silently inlined as base64
+    (`build.assetsInlineLimit: 0`) or served unhashed.
+  - No sourcemaps are built or published (`build.sourcemap: false`); the bundle continues to
+    embed no secrets (no `VITE_*` env values).
+  - **Requires Hub ≥ tenant.N** — an older Hub has no route to fetch the split-out `assets/`
+    files, so the shell's boot watchdog shows "App assets unavailable — Retry" until the tenant
+    is upgraded. No manifest or permission change in this release (the publisher permission
+    declaration hash is unchanged from 2.15.1); the canonical manifest digest changes only
+    because it is keyed by version.
+
 ## [2.15.1] - 2026-08-25
 
 ### Added

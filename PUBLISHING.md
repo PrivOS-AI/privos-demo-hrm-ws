@@ -76,6 +76,18 @@ Portal whose `MCP_PERMISSION_CATALOG_VERSION` predates that merge; it will rejec
 installing tenant's Hub image is built from tenant.132+ — a successful submission against an
 up-to-date Portal does not by itself mean those tabs work on every existing tenant yet.
 
+### Split UI assets need no new permission, but do need a Hub floor version
+
+**2.16.0 example**: `npm run build` now produces a small shell plus hashed `assets/` files
+(`serveBuiltUi`, see README.md § UI build and asset delivery) instead of one inlined bundle. This
+declares no new permission — the publisher permission declaration hash is unchanged from 2.15.1 —
+so it submits and passes review against any Portal. What it does need is **the installing tenant's
+Hub to already be on tenant.N or later**, the first release with the route that fetches these
+split-out assets. Promoting 2.16.0 to a tenant on an older Hub does not fail submission or install;
+the app's UI shows the shell's "App assets unavailable — Retry" panel instead of rendering, until
+that tenant's Hub is upgraded. Release order matters here the same way it does for a permission gap:
+get the fleet's Hub to tenant.N first, then promote this app version.
+
 ---
 
 ## 2. Run the local mirror of the Portal's rules

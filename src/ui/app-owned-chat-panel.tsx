@@ -9,9 +9,13 @@
  * only the surface that presents it. Publishers should treat this as the smallest working
  * shape, not as a finished design.
  */
-import { useState } from 'react';
+import { lazy, Suspense, useState } from 'react';
 import { useAppChatSurface } from '@privos_ai/app-react';
-import AiChatPanel from './ai-chat-panel';
+import { LazyBoundary } from './lazy-boundary';
+
+// Same lazily loaded chunk the "AI Chat" tab uses (`./panels/ai-chat-panel`) — this overlay
+// only mounts it once the user opens the launcher, never on initial app load.
+const AiChatPanel = lazy(() => import('./panels/ai-chat-panel'));
 
 export default function AppOwnedChatPanel() {
   const [visible, setVisible] = useState(false);
@@ -84,7 +88,11 @@ export default function AppOwnedChatPanel() {
           </header>
 
           <div style={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
-            <AiChatPanel />
+            <LazyBoundary>
+              <Suspense fallback={<p className="loading-text">Loading…</p>}>
+                <AiChatPanel />
+              </Suspense>
+            </LazyBoundary>
           </div>
         </aside>
       )}

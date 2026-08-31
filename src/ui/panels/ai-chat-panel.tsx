@@ -21,9 +21,9 @@
  */
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { usePrivosApp, usePrivosContext, parseToolResult } from '@privos_ai/app-react';
-import { restCall } from './privos-rest';
-import { buildSendMessageBody, isInstallationBotProvisioningError } from './ai-chat-bot-selection';
-import AiChatExecutorSelect from './ai-chat-executor-select';
+import { restCall } from '../privos-rest';
+import { buildSendMessageBody, isInstallationBotProvisioningError } from '../ai-chat-bot-selection';
+import AiChatExecutorSelect from '../ai-chat-executor-select';
 import MarkdownBlocks from './markdown-blocks';
 
 interface ToolUse {

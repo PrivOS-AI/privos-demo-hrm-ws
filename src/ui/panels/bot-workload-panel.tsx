@@ -17,8 +17,8 @@
  */
 import { useState } from 'react';
 import { usePrivosApp, usePrivosContext, parseToolResult } from '@privos_ai/app-react';
-import BotWorkloadAttemptSection from './bot-workload-attempt-section';
-import BotWorkloadCredentialCheck from './bot-workload-credential-check';
+import BotWorkloadAttemptSection from '../bot-workload-attempt-section';
+import BotWorkloadCredentialCheck from '../bot-workload-credential-check';
 
 type BotIdentity = {
   botId: string;

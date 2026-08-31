@@ -10,7 +10,7 @@
  */
 import { useState, useEffect, useCallback } from 'react';
 import { usePrivosApp, usePrivosContext } from '@privos_ai/app-react';
-import { restCall } from './privos-rest';
+import { restCall } from '../privos-rest';
 import MarkdownBlocks from './markdown-blocks';
 
 interface ChatSession {

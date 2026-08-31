@@ -27,7 +27,8 @@
  */
 import { useState } from 'react';
 import { usePrivosApp } from '@privos_ai/app-react';
-import { restCall } from './privos-rest';
+import { restCall } from '../privos-rest';
+import sampleArchiveUrl from '../sample-agent-set.tar.gz?url';
 
 interface PreviewItem {
   type: string;
@@ -35,7 +36,13 @@ interface PreviewItem {
   componentCount?: number;
 }
 
-/** The sample set bundled with this app, so the demo needs no external file. */
+/**
+ * The sample set bundled with this app, so the demo needs no external file.
+ * `sampleArchiveUrl` is the hashed, Vite-emitted `assets/` path — resolved
+ * against `import.meta.url` under the relative build base, i.e. the same
+ * tokened Hub path every other asset loads from. `SAMPLE_ARCHIVE` stays the
+ * logical file name sent to the preview API; it must not carry the build hash.
+ */
 const SAMPLE_ARCHIVE = 'sample-agent-set.tar.gz';
 
 async function toBase64(blob: Blob): Promise<string> {
@@ -92,7 +99,7 @@ export default function AgentSetUploadPanel() {
 
   async function useSample() {
     try {
-      const res = await fetch(SAMPLE_ARCHIVE);
+      const res = await fetch(sampleArchiveUrl);
       if (!res.ok) throw new Error(`Could not read the bundled sample (${res.status}).`);
       await submitForPreview(SAMPLE_ARCHIVE, await res.blob());
     } catch (err: any) {
