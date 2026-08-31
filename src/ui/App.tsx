@@ -17,6 +17,7 @@ import AgentBotPanel from './agent-bot-panel';
 import EmbedsPanel from './embeds-panel';
 import BotWorkloadPanel from './bot-workload-panel';
 import AssigneeDemoPanel from './assignee-demo-panel';
+import CustomPermissionsPanel from './custom-permissions-panel';
 import AttemptLifecyclePanel from './attempt-lifecycle-panel';
 import AttemptEvidencePanel from './attempt-evidence-panel';
 import AppObjectsPanel from './app-objects-panel';
@@ -41,6 +42,7 @@ type Tab =
   | 'embeds'
   | 'workload'
   | 'assignees'
+  | 'customPermissions'
   | 'attemptLifecycle'
   | 'attemptEvidence'
   | 'appObjects'
@@ -67,6 +69,7 @@ const TABS: { id: Tab; label: string; scope?: string; degradedBehavior?: string 
   // No single scope: the panel itself shows granted/not-granted per lifecycle scope.
   { id: 'workload', label: 'Bot workload' },
   { id: 'assignees', label: 'Isolated ASSIGNEE', scope: 'lists:write', degradedBehavior: 'This demo needs write access to create the isolated list and item.' },
+  { id: 'customPermissions', label: 'Custom permissions', scope: 'custom-permissions:read', degradedBehavior: "The Custom permissions tab cannot display the room's permission catalog or membership." },
   // Step-1 generic platform contract (merged hub bff01ee8, live only on tenant.132+). Both run as
   // the current user under the already-approved sandbox:generate scope — no new permission.
   { id: 'attemptLifecycle', label: 'Attempt lifecycle', scope: 'sandbox:generate', degradedBehavior: 'This tab cannot dispatch, observe, or cancel a Sandbox attempt.' },
@@ -139,6 +142,7 @@ function ThemedApp() {
           {tab === 'embeds' && <EmbedsPanel />}
           {tab === 'workload' && <BotWorkloadPanel />}
           {tab === 'assignees' && <AssigneeDemoPanel />}
+          {tab === 'customPermissions' && <CustomPermissionsPanel />}
           {tab === 'attemptLifecycle' && <AttemptLifecyclePanel />}
           {tab === 'attemptEvidence' && <AttemptEvidencePanel />}
           {tab === 'appObjects' && <AppObjectsPanel />}

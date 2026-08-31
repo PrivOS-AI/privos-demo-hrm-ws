@@ -5,7 +5,7 @@ import manifest from '../privos-app.json';
 /**
  * Local mirror of the Portal's versioned permission catalog
  * (`privos-portal/src/services/marketplace/marketplace-mcp-permission-catalog.ts`,
- * MCP_PERMISSION_CATALOG_VERSION = '2026-08-13'), restricted to the scopes this
+ * MCP_PERMISSION_CATALOG_VERSION = '2026-08-31'), restricted to the scopes this
  * app declares. It exists so a bad edit to `privos-app.json` fails HERE instead
  * of at Portal submit time as `PROPOSAL_PERMISSION_UNKNOWN` /
  * `PROPOSAL_PERMISSION_CONTEXT_INVALID` / `PROPOSAL_PERMISSION_EXECUTION_INVALID`.
@@ -27,6 +27,8 @@ const CATALOG: Readonly<Record<string, CatalogEntry>> = {
 	'lists:read': { contexts: ['workspace', 'room'], executionContexts: ['user', 'background', 'both'] },
 	'lists:query': { contexts: ['workspace', 'room'], executionContexts: ['user', 'background', 'both'] },
 	'lists:write': { contexts: ['workspace', 'room'], executionContexts: ['user', 'background', 'both'] },
+	'custom-permissions:read': { contexts: ['room'], executionContexts: ['user', 'background', 'both'] },
+	'custom-permissions:write': { contexts: ['room'], executionContexts: ['user', 'background', 'both'] },
 	'notifications:write': { contexts: ['room'], executionContexts: ['user', 'background', 'both'] },
 	'files:read': { contexts: ['workspace', 'room'], executionContexts: ['user', 'background', 'both'] },
 	'files:write': { contexts: ['workspace', 'room'], executionContexts: ['user', 'background', 'both'] },
