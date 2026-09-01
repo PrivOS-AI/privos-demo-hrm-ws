@@ -4,6 +4,17 @@ This project follows [Semantic Versioning](https://semver.org/). Each marketplac
 must equal `privos-app.json.version` and `package.json.version`; change both release notes and metadata
 in one commit.
 
+## [2.17.2] - 2026-09-01
+
+### Changed
+
+- **Custom Permissions tab reframed as the per-record authorization pattern.** The tab intro now
+  explains, in the UI, that the demo shows how an app builds "who can read / who can edit" on
+  isolated-list records via `additionalReaders` (Readable) / `additionalEditors` (Editable) grants,
+  and points to the new builder guide `privos-dev-docs/APP_AUTHORIZATION_WITH_ISOLATED_LISTS.md`
+  (written as an agent-implementable spec). README section expanded with the READ/WRITE capability
+  table. No manifest, scope, or behavior change.
+
 ## [2.17.1] - 2026-09-01
 
 ### Security
