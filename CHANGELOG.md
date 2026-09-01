@@ -4,6 +4,18 @@ This project follows [Semantic Versioning](https://semver.org/). Each marketplac
 must equal `privos-app.json.version` and `package.json.version`; change both release notes and metadata
 in one commit.
 
+## [2.17.0] - 2026-09-01
+
+### Added
+
+- **Custom Permissions demo tab.** A new tab demonstrating the room custom-permission model and the
+  isolated-list item access grants (`additionalReaders` / `additionalEditors`): listing a room's
+  permission catalog and reading/setting item Readable/Editable grants through the mediated tool
+  surface. Declares the `custom-permissions:read` and `custom-permissions:write` scopes.
+  - These scopes require a Portal on MCP permission catalog `2026-08-31` or later (the catalog that
+    introduced them) — otherwise version creation is rejected with `PROPOSAL_PERMISSION_UNKNOWN`. The
+    grant tools resolve on tenants whose Hub carries the matching custom-permission MCP tools.
+
 ## [2.16.0] - 2026-08-31
 
 ### Changed
