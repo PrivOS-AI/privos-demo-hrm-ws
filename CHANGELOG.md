@@ -4,6 +4,15 @@ This project follows [Semantic Versioning](https://semver.org/). Each marketplac
 must equal `privos-app.json.version` and `package.json.version`; change both release notes and metadata
 in one commit.
 
+## [2.17.1] - 2026-09-01
+
+### Security
+
+- **Patch the runtime image's OpenSSL (CVE-2026-14456).** The `node:22-alpine` base shipped
+  `libcrypto3`/`libssl3` 3.5.7-r0 (HIGH); the runtime stage now runs `apk --no-cache upgrade
+  libcrypto3 libssl3` (fixed in 3.5.8-r0) so the built image passes the marketplace image scan.
+  No functional change to the app.
+
 ## [2.17.0] - 2026-09-01
 
 ### Added
