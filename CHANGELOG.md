@@ -4,6 +4,14 @@ This project follows [Semantic Versioning](https://semver.org/). Each marketplac
 must equal `privos-app.json.version` and `package.json.version`; change both release notes and metadata
 in one commit.
 
+## [2.17.3] - 2026-09-01
+
+### Changed
+
+- **Republish with no manifest, scope, or behavior change** so tenants stuck on an older installed
+  generation surface an "Update available" prompt and can adopt the 2.17.x permission set (including
+  `custom-permissions:read`). Identical permission declaration to 2.17.2.
+
 ## [2.17.2] - 2026-09-01
 
 ### Changed
