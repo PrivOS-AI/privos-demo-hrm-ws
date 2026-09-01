@@ -7,3 +7,4 @@
 /GEMINI.md export-ignore
 /dist-source export-ignore
 /pnpm-lock.yaml export-ignore
+/.privos export-ignore
