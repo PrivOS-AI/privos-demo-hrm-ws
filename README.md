@@ -278,12 +278,28 @@ request shapes — as the part still worth confirming on a real installation.
    confirm C's visibility flips accordingly — this is what proves the ASSIGNEE field, not room
    membership, gates isolated-list item visibility.
 
-### Custom permissions tab
+### Custom permissions tab — per-record authorization for your app's data
 
-The **Custom permissions** tab demonstrates the room custom-permission feature: an owner/admin
-defines a named permission and assigns it to members, then grants an isolated-list item's
-`additionalReaders` / `additionalEditors` to that permission so its holders can read (or read+edit)
-the item without being its creator or assignee. Flow:
+This tab is the worked example of a reusable pattern: **give your app a per-record "who can read /
+who can edit" model without writing a permission engine.** Store your records on an **isolated list**
+(so they are private by default), then attach **role grants** to individual records with the
+`additionalReaders` (Readable) / `additionalEditors` (Editable) fields. The Hub computes the row-level
+ACL at every read/write:
+
+| Capability | Who gets it |
+|---|---|
+| **READ** a record | creator ∪ assignee ∪ room owner/admin ∪ holder of any permission id in `additionalReaders` **or** `additionalEditors` (read cascades to sub-items) |
+| **WRITE** a record (edit/move/delete) | creator ∪ assignee ∪ room owner/admin ∪ holder of any permission id in `additionalEditors` (write does **not** cascade) |
+
+A "role" is a **room custom permission** (a named label an owner/admin assigns to human members).
+Grant a record to a role by putting the permission id into the record's Readable/Editable list; every
+holder then gains access, and revoking the permission removes it immediately. On a non-isolated list
+these fields are inert. Full builder guide (concepts, invariants, verification):
+[`privos-dev-docs/APP_AUTHORIZATION_WITH_ISOLATED_LISTS.md`](https://github.com/PrivOS-AI/privos-dev-docs/blob/main/APP_AUTHORIZATION_WITH_ISOLATED_LISTS.md).
+
+The tab walks the full loop — an owner/admin defines a named permission and assigns it to members,
+then grants an isolated-list item's `additionalReaders` / `additionalEditors` to that permission so its
+holders can read (or read+edit) the item without being its creator or assignee. Flow:
 
 1. **Setup** (current-user REST, owner/admin — no app scope): `POST rooms.customPermissions.create`
    then `POST rooms.customPermissions.assign`.

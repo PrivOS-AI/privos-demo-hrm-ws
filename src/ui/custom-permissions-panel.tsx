@@ -218,11 +218,15 @@ export default function CustomPermissionsPanel() {
 
   return (
     <div className="container">
-      <h1>Custom permissions</h1>
+      <h1>Custom permissions — per-record authorization</h1>
       <p className="empty-text">
-        Per-room custom permissions grant read/edit on isolated-list items to their holders, beyond the item&apos;s creator,
-        assignees, and the room owner/admin. Owners/admins mint and assign permissions (current-user REST); this app reads the
-        catalog (<code>custom-permissions:read</code>) and grants an item to a permission (<code>custom-permissions:write</code>).
+        Pattern: put your app&apos;s records on an <strong>isolated list</strong> (private by default), then grant each record to a
+        role. A role is a per-room custom permission an owner/admin assigns to members; you attach it to a record via
+        <code> additionalReaders</code> (Readable — read only) or <code>additionalEditors</code> (Editable — read + edit). The Hub
+        then lets a holder read/edit the record even though they are not its creator or assignee (read cascades to sub-items; write
+        does not). Owners/admins mint and assign permissions (current-user REST); this app reads the catalog
+        (<code>custom-permissions:read</code>) and grants a record to a permission (<code>custom-permissions:write</code>). Full
+        guide: privos-dev-docs → APP_AUTHORIZATION_WITH_ISOLATED_LISTS.md.
       </p>
 
       {!roomId && <p className="empty-text">Reopen the app inside a Room to use this demo.</p>}
