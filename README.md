@@ -294,7 +294,9 @@ ACL at every read/write:
 A "role" is a **room custom permission** (a named label an owner/admin assigns to human members).
 Grant a record to a role by putting the permission id into the record's Readable/Editable list; every
 holder then gains access, and revoking the permission removes it immediately. On a non-isolated list
-these fields are inert. Full builder guide (concepts, invariants, verification):
+these fields are inert. Full builder guide — written as an implementable spec you can hand to a
+coding agent (AI-agent callout, MUST/MUST NOT rules, exact tool argument tables, an implementation
+checklist, and verification):
 [`privos-dev-docs/APP_AUTHORIZATION_WITH_ISOLATED_LISTS.md`](https://github.com/PrivOS-AI/privos-dev-docs/blob/main/APP_AUTHORIZATION_WITH_ISOLATED_LISTS.md).
 
 The tab walks the full loop — an owner/admin defines a named permission and assigns it to members,
