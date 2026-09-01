@@ -2,6 +2,7 @@
 /.env.example export-ignore
 /.agents export-ignore
 /.gemini export-ignore
+/.privos/skills export-ignore
 /AGENTS.md export-ignore
 /CLAUDE.md export-ignore
 /GEMINI.md export-ignore

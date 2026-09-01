@@ -395,6 +395,30 @@ New optional permissions this adds to the manifest: `db:read`, `db:write`, `db:s
 `db:schema:write` — see [`SCOPES.md`](SCOPES.md) for the exact call-site map and
 [`privos-app.json`](privos-app.json) for the declarations.
 
+## Theme inheritance
+
+The **Theme inheritance** tab (`src/ui/theme-inheritance-panel.tsx`) is a visible showcase of
+workspace theme inheritance — no permission involved. The Hub pushes the current light/dark mode
+plus a curated set of 12 `--base-*` design tokens (primary colour, backgrounds, border, text,
+link colour, corner radius, font family) over the same non-secret `HOST_CONTEXT_CHANGED` bridge
+push that carries `theme`/`roomId`, re-sent on every mode flip and on a live admin theme save.
+`@privos_ai/app-react`'s `PrivosAppProvider` (`^0.6.0`) applies every token onto this document's
+`<html>` as a real CSS custom property automatically, before any app code runs.
+
+The tab renders:
+- the current mode (`light`/`dark`) and a legend of all 12 tokens — a colour swatch and the
+  resolved value for colour tokens, a shape/text sample and the resolved value for radius/font;
+- a primary button, a bordered card, and a link, styled purely through `var(--base-*)` — change
+  the workspace theme (or flip light/dark) while this tab is open and they restyle live, with zero
+  reload and zero app-side event handling;
+- a one-line note when the host doesn't provide `themeTokens` (older Hub, or the app running
+  standalone outside a Privos workspace), so the degraded case is visible too.
+
+Whole-app theme sync (the `data-theme` attribute + this file's own `--bg`/`--text`/`--accent`
+indirection) is a separate, older mechanism — see `theme-provider.tsx` and
+`contact-form-styles.css`. This tab exists to make the newer, richer `--base-*` token contract
+demonstrably visible on its own.
+
 ## License behavior
 
 The manifest declares a Free tier (50 records) and Pro tier (5,000 records plus `bulk-export`).
