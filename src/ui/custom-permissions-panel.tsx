@@ -25,7 +25,7 @@ import { usePrivosApp, usePrivosContext } from '@privos_ai/app-react';
 
 import { parseUserIdList } from './assignee-demo-helpers';
 import { buildItemAccessPatch, grantIncludes, findPermissionName, type CustomPermissionRef } from './custom-permissions-helpers';
-import { OptionalFeatureUnavailableError, restCall, safeFeatureError } from './privos-rest';
+import { describeFeatureError, restCall, safeFeatureError } from './privos-rest';
 
 interface MemberRef {
   _id: string;
@@ -120,15 +120,6 @@ export default function CustomPermissionsPanel() {
       next.push({ step, ok, detail });
       setLogs([...next]);
     };
-    // A Setup failure is either a genuine ungranted optional scope (403 → the shared
-    // optional-feature copy) or a business refusal from the endpoint (e.g. "room owner/admin
-    // only", 400) whose real message is what the operator needs — never the optional-feature
-    // copy, which `safeFeatureError` would wrongly substitute for any message mentioning
-    // "permission".
-    const setupError = (e: unknown, fallback: string): string => {
-      if (e instanceof OptionalFeatureUnavailableError) return e.message;
-      return e instanceof Error && e.message ? e.message : fallback;
-    };
     try {
       // No `v1/` prefix on the path — the host bridge adds it, matching every other panel's
       // `restCall` call sites (`items.create`, `ai-messages.startGeneration`, etc.); a literal
@@ -160,7 +151,7 @@ export default function CustomPermissionsPanel() {
       }
       await refreshCatalog();
     } catch (e) {
-      const msg = setupError(e, 'Setup failed — minting/assigning a permission is room owner/admin only.');
+      const msg = describeFeatureError(e, 'Setup failed — minting/assigning a permission is room owner/admin only.');
       log('Setup', false, msg);
       setError(msg);
     } finally {
@@ -239,8 +230,12 @@ export default function CustomPermissionsPanel() {
         `A holder of this permission can now ${asEditor ? 'read AND edit' : 'read'} the item — even though they are neither its creator nor an assignee.`,
       );
     } catch (e) {
-      log('Grant', false, safeFeatureError(e, 'setItemAccess failed (room owner/admin only).'));
-      setError(safeFeatureError(e, 'Granting item access failed — the Hub requires you to be room owner/admin.'));
+      // Surface the REAL failing step's message (create isolated list / create item /
+      // setItemAccess) instead of assuming owner/admin — the grant flow has several steps and the
+      // Hub's own message says which one and why.
+      const msg = describeFeatureError(e, 'Granting item access failed.');
+      log('Grant', false, msg);
+      setError(msg);
     } finally {
       setBusy(false);
     }

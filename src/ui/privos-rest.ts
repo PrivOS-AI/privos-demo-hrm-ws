@@ -40,6 +40,20 @@ export class PrivosRestError extends Error {
   }
 }
 
+/**
+ * Surface the REAL failure. Only a genuine optional-scope denial (a 403 that `restCall` turns
+ * into `OptionalFeatureUnavailableError`) gets the shared "feature disabled" copy; every other
+ * failure shows the endpoint's own message. Prefer this over `safeFeatureError` on any owner/admin
+ * or business-rule path — `safeFeatureError` rewrites any message merely containing "permission"
+ * (e.g. "Only a room owner or admin may set additionalReaders/additionalEditors") into the generic
+ * copy, which hides the actual cause and the failing step.
+ */
+export function describeFeatureError(error: unknown, fallback: string): string {
+  if (error instanceof OptionalFeatureUnavailableError) return error.message;
+  const message = error instanceof Error ? error.message : String(error || '');
+  return message || fallback;
+}
+
 export function safeFeatureError(error: unknown, fallback: string): string {
   if (error instanceof OptionalFeatureUnavailableError) return error.message;
   const message = error instanceof Error ? error.message : String(error || '');
