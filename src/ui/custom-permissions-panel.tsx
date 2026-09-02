@@ -5,8 +5,10 @@
  * an isolated-list item then grants read/edit to holders of those permissions via the
  * `additionalReaders` / `additionalEditors` fields. This panel walks the full loop:
  *
- *   Setup (current-user REST, owner/admin — no app scope):
- *     - POST rooms.customPermissions.create   — mint a demo permission ("Legal").
+ *   Setup (current-user REST via the app-UI bridge, owner/admin — scope `custom-permissions:write`,
+ *   plus `users:read` to resolve a typed username to its user id):
+ *     - GET  users.info                        — resolve username → user id.
+ *     - POST rooms.customPermissions.create    — mint a demo permission ("Legal").
  *     - POST rooms.customPermissions.assign    — assign it to a member.
  *   Read (scope `custom-permissions:read`):
  *     - mcpapp.rooms.customPermissions.list     — the room catalog.
@@ -23,7 +25,7 @@ import { usePrivosApp, usePrivosContext } from '@privos_ai/app-react';
 
 import { parseUserIdList } from './assignee-demo-helpers';
 import { buildItemAccessPatch, grantIncludes, findPermissionName, type CustomPermissionRef } from './custom-permissions-helpers';
-import { restCall, safeFeatureError } from './privos-rest';
+import { OptionalFeatureUnavailableError, restCall, safeFeatureError } from './privos-rest';
 
 interface MemberRef {
   _id: string;
@@ -47,12 +49,15 @@ function parseToolResult<T>(result: unknown): T {
 
 export default function CustomPermissionsPanel() {
   const app = usePrivosApp();
-  const { roomId, userId, effectiveScopes } = usePrivosContext();
+  const { roomId, effectiveScopes } = usePrivosContext();
   const canRead = effectiveScopes?.includes('custom-permissions:read') === true;
   const canWrite = effectiveScopes?.includes('custom-permissions:write') === true;
+  // Resolving a typed username to its user id (users.info) needs users:read; without it the
+  // mint still works but an assignee list cannot be applied.
+  const canResolveUsers = effectiveScopes?.includes('users:read') === true;
 
   const [permName, setPermName] = useState('Legal');
-  const [assigneeId, setAssigneeId] = useState(userId || '');
+  const [assigneeUsernames, setAssigneeUsernames] = useState('');
   const [asEditor, setAsEditor] = useState(true);
   const [catalog, setCatalog] = useState<CustomPermissionRef[]>([]);
   const [members, setMembers] = useState<Record<string, MemberRef[]>>({});
@@ -94,8 +99,10 @@ export default function CustomPermissionsPanel() {
     }
   }
 
-  // Owner/admin setup via current-user REST: mint a permission and assign it to a member.
-  // These endpoints run as the current user and need no app scope.
+  // Owner/admin setup via current-user REST: mint a permission and assign it to members
+  // typed by username. Minting/assigning is proxied through the app-UI REST bridge under
+  // `custom-permissions:write`, and username→user-id resolution (`users.info`) under
+  // `users:read`; each endpoint still independently enforces room owner/admin on the Hub.
   async function createAndAssign() {
     if (!roomId) {
       setError('No roomId in context yet — reopen the app inside a Room.');
@@ -113,6 +120,15 @@ export default function CustomPermissionsPanel() {
       next.push({ step, ok, detail });
       setLogs([...next]);
     };
+    // A Setup failure is either a genuine ungranted optional scope (403 → the shared
+    // optional-feature copy) or a business refusal from the endpoint (e.g. "room owner/admin
+    // only", 400) whose real message is what the operator needs — never the optional-feature
+    // copy, which `safeFeatureError` would wrongly substitute for any message mentioning
+    // "permission".
+    const setupError = (e: unknown, fallback: string): string => {
+      if (e instanceof OptionalFeatureUnavailableError) return e.message;
+      return e instanceof Error && e.message ? e.message : fallback;
+    };
     try {
       // No `v1/` prefix on the path — the host bridge adds it, matching every other panel's
       // `restCall` call sites (`items.create`, `ai-messages.startGeneration`, etc.); a literal
@@ -121,18 +137,32 @@ export default function CustomPermissionsPanel() {
         body: { roomId, name },
       });
       log('Create permission', true, `"${created.permission.name}" (${created.permission._id}).`);
-      const memberIds = parseUserIdList(assigneeId);
-      for (const memberId of memberIds) {
-        // eslint-disable-next-line no-await-in-loop -- small member list; sequential keeps the demo output readable
-        await restCall(app, 'POST', 'rooms.customPermissions.assign', {
-          body: { roomId, userId: memberId, permissionId: created.permission._id },
-        });
-        log('Assign to member', true, `Assigned to ${memberId}.`);
+      const usernames = parseUserIdList(assigneeUsernames);
+      if (usernames.length > 0 && !canResolveUsers) {
+        log('Assign to member', false, 'users:read not granted — cannot resolve usernames to assign.');
+      } else {
+        for (const username of usernames) {
+          // Resolve the username to its user id (users.info runs as the current user, gated by
+          // users:read); the assign endpoint takes a user id and rejects non-members.
+          // eslint-disable-next-line no-await-in-loop -- small member list; sequential keeps the demo output readable
+          const info = await restCall<{ user?: { _id?: string } }>(app, 'GET', 'users.info', { query: { username } });
+          const targetId = info.user?._id;
+          if (!targetId) {
+            log('Assign to member', false, `No user found for username "${username}".`);
+            continue;
+          }
+          // eslint-disable-next-line no-await-in-loop -- see above
+          await restCall(app, 'POST', 'rooms.customPermissions.assign', {
+            body: { roomId, userId: targetId, permissionId: created.permission._id },
+          });
+          log('Assign to member', true, `Assigned @${username} (${targetId}).`);
+        }
       }
       await refreshCatalog();
     } catch (e) {
-      log('Setup', false, safeFeatureError(e, 'Setup failed (owner/admin only).'));
-      setError(safeFeatureError(e, 'Setup failed — creating/assigning a permission is room owner/admin only.'));
+      const msg = setupError(e, 'Setup failed — minting/assigning a permission is room owner/admin only.');
+      log('Setup', false, msg);
+      setError(msg);
     } finally {
       setBusy(false);
     }
@@ -237,19 +267,19 @@ export default function CustomPermissionsPanel() {
         <input id="cp-name" type="text" value={permName} onChange={(e) => setPermName(e.target.value)} disabled={busy || !roomId} />
       </div>
       <div className="form-group">
-        <label htmlFor="cp-assignee">Assign to member user id(s) — comma or space separated, optional</label>
+        <label htmlFor="cp-assignee">Assign to member username(s) — comma or space separated, optional</label>
         <input
           id="cp-assignee"
           type="text"
-          value={assigneeId}
-          onChange={(e) => setAssigneeId(e.target.value)}
-          placeholder="userId1, userId2"
+          value={assigneeUsernames}
+          onChange={(e) => setAssigneeUsernames(e.target.value)}
+          placeholder="alice, bob"
           disabled={busy || !roomId}
         />
       </div>
       <div className="form-actions">
-        <button type="button" className="btn-submit" onClick={createAndAssign} disabled={busy || !roomId}>
-          {busy ? 'Working…' : 'Create & assign permission'}
+        <button type="button" className="btn-submit" onClick={createAndAssign} disabled={busy || !roomId || !canWrite}>
+          {canWrite ? (busy ? 'Working…' : 'Create & assign permission') : 'custom-permissions:write not granted'}
         </button>
       </div>
 

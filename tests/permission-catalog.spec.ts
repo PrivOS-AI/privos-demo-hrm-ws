@@ -29,6 +29,7 @@ const CATALOG: Readonly<Record<string, CatalogEntry>> = {
 	'lists:write': { contexts: ['workspace', 'room'], executionContexts: ['user', 'background', 'both'] },
 	'custom-permissions:read': { contexts: ['room'], executionContexts: ['user', 'background', 'both'] },
 	'custom-permissions:write': { contexts: ['room'], executionContexts: ['user', 'background', 'both'] },
+	'users:read': { contexts: ['workspace', 'room'], executionContexts: ['user'] },
 	'notifications:write': { contexts: ['room'], executionContexts: ['user', 'background', 'both'] },
 	'files:read': { contexts: ['workspace', 'room'], executionContexts: ['user', 'background', 'both'] },
 	'files:write': { contexts: ['workspace', 'room'], executionContexts: ['user', 'background', 'both'] },

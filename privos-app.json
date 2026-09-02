@@ -2,7 +2,7 @@
   "schemaVersion": 3,
   "kind": "mcp-app",
   "name": "ai.privos.mcp-app-demo",
-  "version": "2.17.3",
+  "version": "2.17.4",
   "title": "PrivOS Demo MCP App",
   "description": "Reference PrivOS MCP app demonstrating HR workflows, scoped workspace APIs, AI and sandbox controls, and license-aware features.",
   "icon": "/public/icon.svg",
@@ -208,8 +208,17 @@
       "context": "room",
       "executionContext": "user",
       "feature": "custom-permissions.write",
-      "reason": "Grant a custom permission's holders read or read+edit access to one isolated-list item (additionalReaders/additionalEditors) from the Custom permissions demo tab. The Hub still requires the acting user to be room owner/admin.",
-      "degradedBehavior": "The Custom permissions tab cannot grant item-level access to a custom permission's holders."
+      "reason": "Grant a custom permission's holders read or read+edit access to one isolated-list item (additionalReaders/additionalEditors), and mint/assign a demo permission, from the Custom permissions demo tab. The Hub still requires the acting user to be room owner/admin.",
+      "degradedBehavior": "The Custom permissions tab cannot grant item-level access, nor mint/assign a demo permission."
+    },
+    {
+      "scope": "users:read",
+      "requirement": "optional",
+      "context": "room",
+      "executionContext": "user",
+      "feature": "custom-permissions.assign-by-username",
+      "reason": "Resolve a typed member username to its user id so the Custom permissions demo tab can assign a permission by username instead of a raw user id.",
+      "degradedBehavior": "The Custom permissions tab cannot assign a permission by username; mint and item grant still work."
     }
   ],
   "dataPolicy": {
