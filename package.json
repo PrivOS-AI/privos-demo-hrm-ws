@@ -12,27 +12,7 @@
     "email": "dev@privos.ai",
     "url": "https://privos.ai"
   },
-  "license": {
-    "enforcement": "app",
-    "tiers": [
-      {
-        "id": "free",
-        "features": [],
-        "limits": {
-          "records": 50
-        }
-      },
-      {
-        "id": "pro",
-        "features": [
-          "bulk-export"
-        ],
-        "limits": {
-          "records": 5000
-        }
-      }
-    ]
-  },
+  "license": "MIT",
   "dockerfilePath": "Dockerfile",
   "keywords": [
     "hr",
