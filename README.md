@@ -187,6 +187,10 @@ re-approval: the Hub operator re-reviews the new manifest and pushes a trust rot
 new digest before `/ready` goes green again. There is no way to silently start serving traffic
 under a manifest the Hub never approved.
 
+The operator's side of that re-approval is Hub Admin → Apps → this app → Settings → **Refresh**
+(see the Hub's "Install and operate your own MCP app" doc). Re-pairing this app while it is live is
+refused and points back to Refresh — it is never needed for a manifest change.
+
 Every signed exchange in this mode — dispatch assertions and control notifications alike — is
 capped at a 30-second signature lifetime with zero verifier headroom (`exp - iat <= 30`, hard
 capped even if the Hub asked for more). NTP-synchronized clocks on both the Hub and this app are a
